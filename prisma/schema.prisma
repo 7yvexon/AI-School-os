@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum AssignmentType {
+  HOMEWORK
+  ASSESSMENT
+  EXAM
+  MATERIAL
+}
+
+model User {
+  id            String               @id @default(cuid())
+  email         String               @unique
+  passwordHash  String
+  name          String
+  role          Role
+  plan          Plan                 @default(FREE)
+  school        String               @default("")
+  grade         String               @default("")
+  classroom     String               @default("")
+  createdAt     DateTime             @default(now())
+  sessions      Session[]
+  classes       Class[]
+  memberships   ClassMember[]
+  progress      AssignmentProgress[]
+  conversations AIConversation[]
+  usage         AIUsage[]
+  events        PersonalEvent[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Class {
+  id          String        @id @default(cuid())
+  name        String
+  subject     String
+  code        String        @unique
+  teacherId   String
+  teacher     User          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  members     ClassMember[]
+  assignments Assignment[]
+  createdAt   DateTime      @default(now())
+
+  @@index([teacherId])
+}
+
+model ClassMember {
+  id       String   @id @default(cuid())
+  userId   String
+  classId  String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class    Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  joinedAt DateTime @default(now())
+
+  @@unique([userId, classId])
+  @@index([classId])
+}
+
+model Assignment {
+  id            String               @id @default(cuid())
+  classId       String
+  class         Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  rubric        String
+  type          AssignmentType       @default(HOMEWORK)
+  dueAt         DateTime
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  progress      AssignmentProgress[]
+  conversations AIConversation[]
+  attachments   Attachment[]
+
+  @@index([classId, dueAt])
+}
+
+model AssignmentProgress {
+  id           String     @id @default(cuid())
+  userId       String
+  assignmentId String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  completed    Boolean    @default(false)
+  favorite     Boolean    @default(false)
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, assignmentId])
+  @@index([assignmentId])
+}
+
+model AIConversation {
+  id           String      @id @default(cuid())
+  userId       String
+  assignmentId String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignment   Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  messages     AIMessage[]
+  busyUntil    DateTime    @default(now())
+
+  @@unique([userId, assignmentId])
+  @@index([assignmentId])
+}
+
+model AIMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model AIUsage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day    String
+  count  Int    @default(0)
+  tokens Int    @default(0)
+
+  @@unique([userId, day])
+}
+
+model PersonalEvent {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title  String
+  dueAt  DateTime
+
+  @@index([userId, dueAt])
+}
+
+model Attachment {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  name         String
+  mime         String
+  data         Bytes
+
+  @@index([assignmentId])
+}
+
+model RateLimit {
+  key       String   @id
+  count     Int      @default(1)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
