@@ -192,9 +192,6 @@ tests/                    도메인 테스트·Playwright E2E
 
 ## 참고
 
-- [Next.js 설치 및 App Router](https://nextjs.org/docs/app/getting-started/installation)
-- [Prisma 6 스키마와 클라이언트](https://www.prisma.io/docs/orm/v6/prisma-schema/overview/generators)
-- [Three.js](https://threejs.org/)
-- [디자인 분위기 참고: 토스](https://toss.im/)
+
 
 `deepmerge-ts`는 개발 도구인 Prisma 설정 로더의 하위 의존성입니다. 알려진 재귀 병합 취약점을 피하기 위해 8.x override를 적용하고 Prisma 생성·마이그레이션·빌드로 호환성을 확인합니다.
