@@ -1,0 +1,126 @@
+AI School OS 범서고등학교 학생 제한적 이용 라이선스
+버전 1.0 — 2026-09-17
+
+저작권 고지
+
+AI School OS 저장소의 소스 코드, 문서, 이미지, 영상, 디자인 및 기타 원저작물(이하 “저작물”)은 저장소 소유자 및 각 권리자에게 저작권이 있다. 이 라이선스에서 “저작권자”는 해당 저작물의 권리를 보유하거나 이용 허가를 할 권한이 있는 자를 뜻한다.
+
+1. 기본 원칙
+
+저작권자의 사전 서면 허가 없이 저작물을 복제, 수정, 2차적 저작물 작성, 배포, 재배포, 공개, 판매, 대여, 재라이선스, 서비스나 제품에 포함하거나 그 밖의 방식으로 이용할 수 없다. 저장소가 공개되어 있거나 GitHub의 복제·포크 기능을 통해 사본을 만들 수 있다는 사실만으로 이 라이선스에 따른 별도의 이용 허가가 부여되지는 않는다. GitHub 이용약관이 허용하는 서비스 내 열람·포크 등의 행위는 해당 약관과 GitHub 기능의 범위에서 이루어질 수 있으나, 이 라이선스는 포크 사본을 GitHub 서비스 밖에서 사용·공개·배포할 권리를 부여하지 않는다.
+
+2. 범서고등학교 학생의 제한적 이용 허가
+
+다음 조건을 모두 충족하는 범서고등학교 재학생에게만, 저작권자가 학생 신분과 본인 여부를 확인하고 승인한 범위에서, 비독점적·양도 불가·재허가 불가·무상·철회 가능한 이용 허가를 부여한다.
+
+가. 저작권자가 인정하는 방법으로 본인과 현재 재학 여부를 저작권자에게 직접 인증한다.
+나. 저작권자의 확인 후 전달된 승인 메시지 또는 허가서에 기재된 대상, 기간, 목적 및 허용 행위를 따른다.
+다. 승인된 범위를 벗어난 복제본, 수정본 또는 파생물을 제3자에게 제공하지 않는다.
+
+3. 허용되는 기본 범위
+
+승인 메시지 또는 허가서에 더 좁거나 다른 범위가 명시되지 않은 경우, 승인된 학생은 다음 행위만 할 수 있다.
+
+- 개인 학습 및 범서고등학교의 수업·동아리·과제 수행을 위해 자신의 기기 또는 저작권자가 승인한 학교 환경에서 저작물을 실행하고 열람한다.
+- 위 목적에 필요한 범위에서 개인적으로 저작물을 수정하고 실험한다.
+- 범서고등학교 내부의 비공개 발표·시연에 한하여 결과를 보여 준다. 소스 코드, 빌드 산출물, 접근 자격 증명 및 실제 학생 데이터는 공개하거나 제공할 수 없다.
+
+저작권자가 발급한 개별 승인 메시지 또는 허가서가 이 기본 범위와 다르게 정한 경우에는 그 문서에 적힌 범위가 우선한다.
+
+4. 금지되는 행위
+
+다음 행위는 저작권자의 별도 서면 허가 없이는 할 수 없다.
+
+- 저작물 또는 그 일부를 공개 저장소, 웹사이트, 패키지 저장소, 앱 마켓, 파일 공유 서비스 또는 소셜 미디어에 올리거나 외부에 배포한다.
+- 저작물을 영리·상업적 목적으로 사용하거나, 유료 서비스·제품·광고·후원·수익화된 콘텐츠에 포함한다.
+- 저작권자의 승인을 받지 않은 사람에게 저작물, 복제본, 수정본, 파생물 또는 이용 자격을 넘기거나 재허가한다.
+- 저작권 표시, 이 라이선스 또는 이용 제한 고지를 삭제·변경하거나 저작권자 또는 범서고등학교의 공식 승인·후원을 허위로 표시한다.
+- 인증 정보, 계정, 초대 코드 또는 기타 접근 수단을 공유하거나 이 라이선스의 제한을 우회한다.
+
+5. 허용된 복제본에 대한 표시
+
+허용된 범위에서 복제하거나 수정한 사본에는 원래의 저작권 표시와 이 라이선스 사본 또는 링크를 함께 포함해야 한다. 수정본에는 수정 사실과 수정일을 명확히 표시해야 한다.
+
+6. 제3자 저작물
+
+저작물에 포함되거나 함께 배포되는 제3자 라이브러리, 글꼴, 이미지, 영상, 데이터 및 기타 자료에는 각자의 라이선스가 적용될 수 있다. 이 라이선스는 저작권자가 해당 제3자 자료에 대해 보유하지 않은 권리를 부여하지 않으며, 제3자 라이선스의 조건을 우선하여 준수해야 한다.
+
+7. 기간 및 종료
+
+이용 허가는 저작권자가 승인한 기간과 범위에서만 유효하다. 승인 학생이 이 라이선스를 위반하면 허가는 즉시 종료된다. 별도 서면 합의가 없는 한 범서고등학교 학생 신분이 끝나거나 저작권자가 허가를 철회한 때에도 허가는 종료된다. 종료되면 해당 저작물의 이용을 중단하고, 저작권자가 요청하는 경우 보유한 사본과 수정본을 삭제해야 한다.
+
+8. 보증 및 책임의 부인
+
+저작물은 “있는 그대로” 제공된다. 법이 허용하는 최대 범위에서 저작권자는 저작물의 정확성, 안전성, 상품성, 특정 목적 적합성 또는 제3자 권리 비침해를 보증하지 않으며, 저작물의 사용 또는 사용 불능으로 발생하는 손해에 대해 책임을 지지 않는다.
+
+9. 기타
+
+이 라이선스에 정하지 않은 이용은 허가되지 않는다. 인증 방법, 허용 범위, 기간 또는 예외가 불명확하면 이용하기 전에 저작권자로부터 별도의 서면 허가를 받아야 한다. 이 라이선스는 오픈소스 라이선스가 아니며, 명시되지 않은 권리는 모두 저작권자에게 유보된다.
+
+허가 문의: 저장소 소유자의 공개 연락처 또는 저장소의 비공개 연락 수단을 이용한다.
+
+------------------------------------------------------------
+English Translation
+
+AI School OS Beomseo High School Student Restricted Use License
+Version 1.0 — 2026-09-17
+
+Copyright Notice
+
+The source code, documentation, images, videos, designs, and other original works in the AI School OS repository (collectively, the “Work”) are protected by copyright owned by the repository owner and the respective rights holders. In this license, “Copyright Holder” means a person who owns the rights in the relevant Work or is authorized to grant permission to use it.
+
+1. General Rule
+
+Without the Copyright Holder’s prior written permission, no one may copy, modify, create derivative works from, distribute, redistribute, publish, sell, rent, sublicense, include, or otherwise use the Work in a service or product, or use it in any other manner. The fact that the repository is public or that a copy can be made through GitHub’s clone or fork features does not by itself grant a separate permission to use the Work under this license. Viewing, forking, or similar actions within the GitHub service may occur under the GitHub Terms of Service and within the scope of GitHub’s features and terms; this license does not grant the right to use, publish, or distribute a forked copy outside the GitHub service.
+
+2. Restricted License for Beomseo High School Students
+
+A non-exclusive, non-transferable, non-sublicensable, royalty-free, and revocable license is granted only to a currently enrolled student of Beomseo High School whose identity and student status have been verified by the Copyright Holder, and only within the scope approved by the Copyright Holder.
+
+a. The student must directly verify their identity and current enrollment with the Copyright Holder using a method accepted by the Copyright Holder.
+b. The student must follow the subject, period, purpose, and permitted actions stated in the approval message or permission document delivered after the Copyright Holder’s verification.
+c. The student must not provide any copy, modification, or derivative work outside the approved scope to any third party.
+
+3. Default Permitted Scope
+
+Unless an approval message or permission document specifies a narrower or different scope, an approved student may only:
+
+- run and view the Work on the student’s own device or in a school environment approved by the Copyright Holder for personal study and Beomseo High School classes, clubs, or assignments;
+- privately modify and experiment with the Work as necessary for those purposes; and
+- show the results only in a private presentation or demonstration within Beomseo High School. Source code, build artifacts, access credentials, and actual student data must not be published or provided to others.
+
+If an individual approval message or permission document issued by the Copyright Holder differs from this default scope, the scope written in that document prevails.
+
+4. Prohibited Activities
+
+The following activities are prohibited without separate written permission from the Copyright Holder:
+
+- uploading or distributing the Work or any part of it to a public repository, website, package registry, app marketplace, file-sharing service, social media service, or any other external location;
+- using the Work for profit or commercial purposes, or including it in a paid service, product, advertisement, sponsorship, or monetized content;
+- transferring or sublicensing the Work, a copy, modification, derivative work, or the right to use it to a person who has not been approved by the Copyright Holder;
+- removing or changing copyright notices, this license, or use-restriction notices, or falsely claiming official approval or sponsorship by the Copyright Holder or Beomseo High School; or
+- sharing authentication information, accounts, invitation codes, or other access methods, or circumventing the restrictions of this license.
+
+5. Notices for Permitted Copies
+
+Any copy or modified copy made within the permitted scope must include the original copyright notice and a copy of or link to this license. A modified copy must clearly state that it has been modified and include the date of modification.
+
+6. Third-Party Works
+
+Third-party libraries, fonts, images, videos, data, and other materials included in or distributed with the Work may be subject to their own licenses. This license does not grant rights that the Copyright Holder does not have in those third-party materials, and the terms of the applicable third-party licenses must be followed first.
+
+7. Term and Termination
+
+The license is valid only for the period and scope approved by the Copyright Holder. It terminates immediately if the approved student violates this license. Unless otherwise agreed in writing, it also terminates when the student is no longer enrolled at Beomseo High School or when the Copyright Holder revokes the permission. Upon termination, the student must stop using the Work and, if requested by the Copyright Holder, delete all copies and modifications in their possession.
+
+8. Disclaimer of Warranty and Liability
+
+The Work is provided “AS IS.” To the maximum extent permitted by law, the Copyright Holder makes no warranty regarding the accuracy, safety, merchantability, fitness for a particular purpose, or non-infringement of third-party rights of the Work, and is not liable for any damages arising from the use or inability to use the Work.
+
+9. Miscellaneous
+
+Any use not expressly permitted by this license is prohibited. If the verification method, permitted scope, period, or an exception is unclear, separate written permission must be obtained from the Copyright Holder before use. This is not an open source license, and all rights not expressly granted are reserved by the Copyright Holder.
+
+Permission requests: use the repository owner’s public contact information or the repository’s private contact method.
+
+This English translation is provided for convenience. If the Korean and English texts conflict, the Korean text controls.
