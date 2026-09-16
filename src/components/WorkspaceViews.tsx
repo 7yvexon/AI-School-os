@@ -21,6 +21,8 @@ import { ProfileForm } from "./ProfileForm";
 import { ProgressButton } from "./ProgressButton";
 import { DeleteButton } from "./DeleteButton";
 import { Chat } from "./Chat";
+import { SubmissionForm } from "./SubmissionForm";
+import { SubmissionReviewForm } from "./SubmissionReviewForm";
 
 type Role = "STUDENT" | "TEACHER";
 export function Heading({
@@ -594,6 +596,29 @@ export async function AssignmentDetail({
           },
         })
       : [];
+  const submission =
+    role === "STUDENT"
+      ? await db.submission.findUnique({
+          where: {
+            assignmentId_studentId: {
+              assignmentId: id,
+              studentId: user.id,
+            },
+          },
+        })
+      : null;
+  const submissions =
+    role === "TEACHER"
+      ? await db.submission.findMany({
+          where: { assignmentId: id },
+          include: {
+            student: {
+              select: { name: true, grade: true, classroom: true },
+            },
+          },
+          orderBy: { updatedAt: "desc" },
+        })
+      : [];
   const usage =
     role === "STUDENT"
       ? await db.aIUsage.findUnique({
@@ -699,19 +724,29 @@ export async function AssignmentDetail({
         </div>
       </div>
       {role === "STUDENT" ? (
-        <div id="chat" style={{ marginTop: 24 }}>
-          <Chat
-            assignmentId={id}
-            initialMessages={(conversation?.messages ?? []).map((m) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-            }))}
-            configured={aiConfigured()}
-            initialUsed={usage?.count ?? 0}
-            limit={dailyLimit(user.plan)}
-          />
-        </div>
+        <>
+          <div style={{ marginTop: 24 }}>
+            <SubmissionForm
+              assignmentId={id}
+              content={submission?.content}
+              status={submission?.status}
+              feedback={submission?.feedback}
+            />
+          </div>
+          <div id="chat" style={{ marginTop: 24 }}>
+            <Chat
+              assignmentId={id}
+              initialMessages={(conversation?.messages ?? []).map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+              }))}
+              configured={aiConfigured()}
+              initialUsed={usage?.count ?? 0}
+              limit={dailyLimit(user.plan)}
+            />
+          </div>
+        </>
       ) : (
         <>
           <div className="section-heading">
@@ -719,7 +754,7 @@ export async function AssignmentDetail({
               <h2>학생별 진행 상황</h2>
               <p>
                 {members.filter((m) => m.user.progress[0]?.completed).length}/
-                {members.length}명 완료 · 완료는 학생의 자기 확인 상태입니다.
+                {members.length}명 완료 · 제출된 과제는 아래에서 검토할 수 있어요.
               </p>
             </div>
           </div>
@@ -742,6 +777,30 @@ export async function AssignmentDetail({
             ))}
             {!members.length && (
               <p className="page-subtitle">아직 참여한 학생이 없습니다.</p>
+            )}
+          </div>
+          <div className="section-heading">
+            <div>
+              <h2>제출물 검토</h2>
+              <p>{submissions.length}명이 제출한 내용을 확인하세요.</p>
+            </div>
+          </div>
+          <div className="card card-pad">
+            {submissions.length ? (
+              submissions.map((item) => (
+                <SubmissionReviewForm
+                  key={item.id}
+                  submissionId={item.id}
+                  studentName={item.student.name}
+                  studentMeta={`${item.student.grade ? `${item.student.grade}학년` : ""}${item.student.grade && item.student.classroom ? " " : ""}${item.student.classroom ? `${item.student.classroom}반` : ""}`}
+                  content={item.content}
+                  status={item.status}
+                  feedback={item.feedback}
+                  submittedAt={item.submittedAt.toISOString()}
+                />
+              ))
+            ) : (
+              <p className="page-subtitle">아직 제출한 학생이 없습니다.</p>
             )}
           </div>
         </>

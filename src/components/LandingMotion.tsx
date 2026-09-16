@@ -1,6 +1,147 @@
 "use client";
 import { useEffect, useRef } from "react";
 
+export function ScrollShowcase() {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const media = matchMedia("(prefers-reduced-motion: reduce)");
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const rect = node.getBoundingClientRect();
+      const progress = media.matches
+        ? 0.55
+        : Math.max(
+            0,
+            Math.min(1, -rect.top / Math.max(1, rect.height - innerHeight)),
+          );
+      node.style.setProperty("--journey", String(progress));
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    addEventListener("scroll", schedule, { passive: true });
+    addEventListener("resize", schedule);
+    media.addEventListener("change", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      removeEventListener("scroll", schedule);
+      removeEventListener("resize", schedule);
+      media.removeEventListener("change", schedule);
+    };
+  }, []);
+  return (
+    <section
+      ref={ref}
+      className="scroll-showcase"
+      aria-labelledby="showcase-title"
+    >
+      <div className="showcase-stage">
+        <div className="showcase-copy">
+          <span className="eyebrow">ALL YOUR SCHOOL LIFE</span>
+          <h2 id="showcase-title">
+            할 일은 한눈에.
+            <br />
+            하루는 내 페이스대로.
+          </h2>
+          <p>
+            흩어져 있던 과제와 일정이
+            <br />
+            나를 위한 하나의 화면으로.
+          </p>
+          <a href="/register" className="text-link">
+            나의 공간 만들기 ↗
+          </a>
+        </div>
+        <div className="showcase-device" aria-label="학교생활 대시보드 예시">
+          <div className="device-camera" />
+          <div className="device-screen">
+            <div className="device-status">
+              <b>9:41</b>
+              <span>● ▰</span>
+            </div>
+            <span className="device-greeting">MY SCHOOL</span>
+            <h3>
+              좋은 아침이에요,
+              <br />
+              오늘도 차근차근.
+            </h3>
+            <div className="device-summary">
+              <span>
+                이번 주 할 일
+                <strong>
+                  3<small>개</small>
+                </strong>
+              </span>
+              <span>
+                완료한 과제
+                <strong>
+                  8<small>개</small>
+                </strong>
+              </span>
+            </div>
+            <h4>
+              오늘의 우선순위 <span>전체 보기 ↗</span>
+            </h4>
+            {[
+              { s: "탐구", t: "주제 탐구 보고서", d: "D-3", c: "blue" },
+              { s: "영어", t: "나의 꿈 발표 준비", d: "D-5", c: "purple" },
+              { s: "과학", t: "탐구 보고서 작성", d: "D-7", c: "green" },
+            ].map((a) => (
+              <div className="device-task" key={a.s}>
+                <i className={a.c}>{a.s}</i>
+                <div>
+                  <b>{a.t}</b>
+                  <small>수행평가 · 준비 중</small>
+                </div>
+                <em>{a.d}</em>
+              </div>
+            ))}
+            <div className="device-ai">
+              <span>✦</span>
+              <div>
+                <b>막막할 땐, AI와 함께</b>
+                <small>오늘 30분, 뭐부터 할까요?</small>
+              </div>
+              <span>↗</span>
+            </div>
+            <div className="device-tabs">
+              <b>
+                ⌂<small>홈</small>
+              </b>
+              <span>
+                ▦<small>클래스</small>
+              </span>
+              <span>
+                ✦<small>AI</small>
+              </span>
+              <span>
+                □<small>캘린더</small>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="journey-note note-one">
+          <span>✓</span>
+          <b>
+            하나씩 끝내는 즐거움<small>나의 속도로, 꾸준하게</small>
+          </b>
+        </div>
+        <div className="journey-note note-two">
+          <span>✦</span>
+          <b>
+            내 과제를 이해하는 AI<small>시작부터 마무리까지 함께</small>
+          </b>
+        </div>
+        <span className="showcase-caption">서비스 화면 예시</span>
+      </div>
+    </section>
+  );
+}
+
 export function Reveal({
   children,
   className = "",

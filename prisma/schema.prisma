@@ -24,6 +24,12 @@ enum AssignmentType {
   MATERIAL
 }
 
+enum SubmissionStatus {
+  SUBMITTED
+  RETURNED
+  REVIEWED
+}
+
 model User {
   id            String               @id @default(cuid())
   email         String               @unique
@@ -39,6 +45,7 @@ model User {
   classes       Class[]
   memberships   ClassMember[]
   progress      AssignmentProgress[]
+  submissions   Submission[]
   conversations AIConversation[]
   usage         AIUsage[]
   events        PersonalEvent[]
@@ -92,6 +99,7 @@ model Assignment {
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   progress      AssignmentProgress[]
+  submissions   Submission[]
   conversations AIConversation[]
   attachments   Attachment[]
 
@@ -112,6 +120,25 @@ model AssignmentProgress {
   @@index([assignmentId])
 }
 
+model Submission {
+  id           String           @id @default(cuid())
+  assignmentId String
+  studentId    String
+  content      String
+  status       SubmissionStatus @default(SUBMITTED)
+  feedback     String           @default("")
+  submittedAt  DateTime         @default(now())
+  reviewedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student      User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId, status])
+  @@index([studentId, updatedAt])
+}
+
 model AIConversation {
   id           String      @id @default(cuid())
   userId       String
@@ -129,6 +156,7 @@ model AIMessage {
   id             String         @id @default(cuid())
   conversationId String
   conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // SQL CHECK restricts persisted history to user/assistant; system context is server-only.
   role           String
   content        String
   createdAt      DateTime       @default(now())
@@ -141,6 +169,7 @@ model AIUsage {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   day    String
+  // SQL CHECK constraints require nonnegative count and tokens.
   count  Int    @default(0)
   tokens Int    @default(0)
 
@@ -163,6 +192,7 @@ model Attachment {
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   name         String
   mime         String
+  // SQL CHECK enforces 1..5 MiB, including writes outside the upload action.
   data         Bytes
 
   @@index([assignmentId])
@@ -170,6 +200,7 @@ model Attachment {
 
 model RateLimit {
   key       String   @id
+  // SQL CHECK requires a positive counter.
   count     Int      @default(1)
   expiresAt DateTime
 
