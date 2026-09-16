@@ -1,7 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { randomBytes } from "node:crypto";
 import { dayKey } from "../../src/lib/domain";
 const db = new PrismaClient();
+const e2eTeacherInviteCode =
+  process.env.E2E_TEACHER_INVITE_CODE ?? randomBytes(18).toString("hex");
+const e2eTestPassword =
+  process.env.E2E_TEST_PASSWORD ?? randomBytes(24).toString("base64url");
 test.afterAll(() => db.$disconnect());
 async function register(
   page: Page,
@@ -15,9 +20,9 @@ async function register(
   if (role === "선생님")
     await page
       .getByLabel("교사 초대 코드", { exact: true })
-      .fill("e2e-teacher-invite");
+      .fill(e2eTeacherInviteCode);
   await page.getByLabel("이메일").fill(email);
-  await page.getByLabel("비밀번호").fill("SchoolE2E!2026");
+  await page.getByLabel("비밀번호").fill(e2eTestPassword);
   await page.getByRole("button", { name: "회원가입" }).click();
   await expect(page).toHaveURL(
     new RegExp(`/${role === "학생" ? "student" : "teacher"}/dashboard`),
@@ -265,7 +270,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await expect(student).toHaveURL("http://localhost:3100/");
   await student.goto("/login");
   await student.getByLabel("이메일").fill(`student-${stamp}@example.com`);
-  await student.getByLabel("비밀번호").fill("SchoolE2E!2026");
+  await student.getByLabel("비밀번호").fill(e2eTestPassword);
   await student.getByRole("button", { name: "로그인", exact: true }).click();
   await expect(student).toHaveURL(/student\/dashboard/);
   await student.setViewportSize({ width: 1280, height: 720 });

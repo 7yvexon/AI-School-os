@@ -1,8 +1,10 @@
 import EmbeddedPostgres from "embedded-postgres";
 import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { execFile, spawn, spawnSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
+import { randomBytes } from "node:crypto";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -12,6 +14,18 @@ let next: ReturnType<typeof spawn> | undefined;
 let postgresPid: number | undefined;
 let postgresDirectory = "";
 let stopping = false;
+
+async function readOrCreateSecret(path: string) {
+  if (existsSync(path)) return (await readFile(path, "utf8")).trim();
+  const generated = randomBytes(24).toString("hex");
+  try {
+    await writeFile(path, `${generated}\n`, { flag: "wx", mode: 0o600 });
+    return generated;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    return (await readFile(path, "utf8")).trim();
+  }
+}
 
 function forceKillPostgres() {
   if (process.platform !== "win32") return;
@@ -51,14 +65,16 @@ async function stop(code: number) {
 
 async function main() {
   const databaseDir = resolve(
-    process.env.E2E_DATABASE_DIR ?? ".local/e2e-postgres",
+    process.env.E2E_DATABASE_DIR ?? ".local/e2e-postgres-v2",
   );
+  await mkdir(resolve(databaseDir, ".."), { recursive: true });
+  const databasePassword = await readOrCreateSecret(`${databaseDir}.password`);
   postgresDirectory = databaseDir;
   pg = new EmbeddedPostgres({
     databaseDir,
     port: 55433,
     user: "school",
-    password: "e2e_password",
+    password: databasePassword,
     persistent: true,
     authMethod: "scram-sha-256",
     initdbFlags: ["--locale=C", "--encoding=UTF8"],
@@ -78,15 +94,15 @@ async function main() {
   if (!result.rowCount) await pg.createDatabase("school_e2e");
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    DATABASE_URL:
-      "postgresql://school:e2e_password@localhost:55433/school_e2e?schema=public",
-    AUTH_SECRET: "e2e-only-secret-at-least-thirty-two-characters",
+    DATABASE_URL: `postgresql://school:${databasePassword}@localhost:55433/school_e2e?schema=public`,
+    AUTH_SECRET: randomBytes(32).toString("hex"),
     NODE_ENV: "test",
     APP_URL: "http://localhost:3100",
     TRUST_PROXY: "false",
     SERVER_ACTION_ALLOWED_ORIGINS: "",
-    TEACHER_INVITE_CODE: "e2e-teacher-invite",
-    AI_API_KEY: "local-test-key",
+    TEACHER_INVITE_CODE:
+      process.env.E2E_TEACHER_INVITE_CODE ?? randomBytes(18).toString("hex"),
+    AI_API_KEY: randomBytes(24).toString("hex"),
     AI_BASE_URL: "http://127.0.0.1:4318/v1",
     AI_MODEL: "test-fixture",
     AI_ALLOW_INSECURE_HTTP_LOCALHOST: "true",

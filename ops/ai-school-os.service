@@ -1,0 +1,42 @@
+[Unit]
+Description=AI School OS Next.js application
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=exec
+User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=__APP_ROOT__/current
+EnvironmentFile=__CONFIG_ROOT__/app.env
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=__APP_PORT__
+ExecStartPre=/usr/bin/test -r __APP_ROOT__/current/.next/BUILD_ID
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStart=/usr/bin/node __APP_ROOT__/current/node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port __APP_PORT__
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+UMask=0077
+StateDirectory=__SERVICE_NAME__
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/__SERVICE_NAME__
+LimitNOFILE=65536
+SyslogIdentifier=__SERVICE_NAME__
+
+[Install]
+WantedBy=multi-user.target

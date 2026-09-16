@@ -1,11 +1,16 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 const db = new PrismaClient();
 async function seed() {
   if (process.env.NODE_ENV === "production")
     throw new Error("샘플 계정은 개발환경에서만 생성할 수 있습니다.");
-  const passwordHash = await bcrypt.hash("SchoolDemo!2026", 12);
+  const samplePassword =
+    process.env.SEED_PASSWORD?.trim() || randomBytes(18).toString("base64url");
+  if (samplePassword.length < 10)
+    throw new Error("SEED_PASSWORD는 10자 이상이어야 합니다.");
+  const passwordHash = await bcrypt.hash(samplePassword, 12);
   const teacher = await db.user.upsert({
     where: { email: "teacher@example.com" },
     update: {
@@ -81,7 +86,7 @@ async function seed() {
     },
   });
   console.log(
-    "개발용 샘플 데이터 준비 완료. teacher@example.com / student@example.com · 비밀번호: SchoolDemo!2026",
+    `개발용 샘플 데이터 준비 완료. teacher@example.com / student@example.com · 임시 비밀번호: ${samplePassword}`,
   );
 }
 seed()

@@ -134,7 +134,7 @@ cp .env.example .env
 docker compose up -d db
 ```
 
-`.env`의 `AUTH_SECRET`을 최소 32자 무작위 값으로 교체합니다.
+`.env`의 `POSTGRES_PASSWORD`와 `DATABASE_URL`에 있는 로컬 DB 비밀번호 자리표시자를 같은 값으로 교체하고, `AUTH_SECRET`을 최소 32자 무작위 값으로 교체합니다.
 
 ```bash
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
@@ -148,17 +148,17 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 배포 전에 `NODE_ENV=production`으로 실행 환경을 선택한 뒤 `npm run ops:check-env`를 실행하면 데이터베이스 URL, 인증 비밀값, 외부 URL, 프록시 설정을 값 자체를 출력하지 않고 확인할 수 있습니다. 이 명령은 서버를 시작하지 않으므로 배포 파이프라인의 사전 점검 단계에서 사용할 수 있습니다.
 
-| 변수                            | 필수         | 설명                                                                                                         |
-| ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                  | 예           | PostgreSQL 연결 문자열. 예: `postgresql://school:school_dev_password@localhost:5432/school_os?schema=public` |
-| `AUTH_SECRET`                   | 예           | 최소 32자 무작위 비밀값. 변경하면 기존 세션이 무효화됩니다.                                                  |
-| `APP_URL`                       | 예           | 외부 접속 원본 URL. 로컬 기본값은 `http://localhost:3000`이며 AI API Origin 검사에 사용합니다.               |
-| `TRUST_PROXY`                   | 배포 시      | `true`일 때 신뢰하는 프록시의 `X-Forwarded-For`·`X-Real-IP`를 IP 제한에 사용합니다.                          |
-| `SERVER_ACTION_ALLOWED_ORIGINS` | 배포 시      | 프록시가 사용하는 Server Action 허용 호스트를 쉼표로 구분해 입력합니다.                                      |
-| `TEACHER_INVITE_CODE`           | 교사 가입 시 | 교사 계정 가입을 허용할 때만 설정하는 서버 전용 초대 코드입니다. 비워 두면 공개 교사 가입을 막습니다.        |
-| `AI_API_KEY`                    | AI 사용 시   | OpenAI 호환 제공자의 API 키. 서버에서만 읽습니다.                                                            |
-| `AI_BASE_URL`                   | AI 사용 시   | `/chat/completions` 앞까지의 URL. 운영에서는 HTTPS를 사용합니다. 예: `https://api.openai.com/v1`             |
-| `AI_MODEL`                      | AI 사용 시   | 제공자가 지원하는 모델 ID                                                                                    |
+| 변수                            | 필수         | 설명                                                                                                  |
+| ------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | 예           | PostgreSQL 연결 문자열. `.env.example`의 자리표시자를 실제 개발 DB 값으로 교체합니다.                 |
+| `AUTH_SECRET`                   | 예           | 최소 32자 무작위 비밀값. 변경하면 기존 세션이 무효화됩니다.                                           |
+| `APP_URL`                       | 예           | 외부 접속 원본 URL. 로컬 기본값은 `http://localhost:3000`이며 AI API Origin 검사에 사용합니다.        |
+| `TRUST_PROXY`                   | 배포 시      | `true`일 때 신뢰하는 프록시의 `X-Forwarded-For`·`X-Real-IP`를 IP 제한에 사용합니다.                   |
+| `SERVER_ACTION_ALLOWED_ORIGINS` | 배포 시      | 프록시가 사용하는 Server Action 허용 호스트를 쉼표로 구분해 입력합니다.                               |
+| `TEACHER_INVITE_CODE`           | 교사 가입 시 | 교사 계정 가입을 허용할 때만 설정하는 서버 전용 초대 코드입니다. 비워 두면 공개 교사 가입을 막습니다. |
+| `AI_API_KEY`                    | AI 사용 시   | OpenAI 호환 제공자의 API 키. 서버에서만 읽습니다.                                                     |
+| `AI_BASE_URL`                   | AI 사용 시   | `/chat/completions` 앞까지의 URL. 운영에서는 HTTPS를 사용합니다. 예: `https://api.openai.com/v1`      |
+| `AI_MODEL`                      | AI 사용 시   | 제공자가 지원하는 모델 ID                                                                             |
 
 AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 뒤 학생 과제 상세에서 AI 사용에 동의하고 질문합니다. 서버는 `POST {AI_BASE_URL}/chat/completions`로 `{ model, messages, max_tokens: 1600 }`을 보내는 비스트리밍 어댑터를 사용합니다. 다른 응답 형식은 [AI 어댑터](src/lib/ai.ts)에서 조정합니다.
 
@@ -175,17 +175,17 @@ AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 
 <details>
 <summary>샘플 계정과 클래스 정보 보기</summary>
 
-| 역할   | 이메일                | 비밀번호          |
-| ------ | --------------------- | ----------------- |
-| 선생님 | `teacher@example.com` | `SchoolDemo!2026` |
-| 학생   | `student@example.com` | `SchoolDemo!2026` |
+| 역할   | 이메일                | 비밀번호                 |
+| ------ | --------------------- | ------------------------ |
+| 선생님 | `teacher@example.com` | `npm run db:seed` 출력값 |
+| 학생   | `student@example.com` | `npm run db:seed` 출력값 |
 
 - 샘플 클래스: **2학년 탐구 수업**
 - 초대 코드: `BSS-7K29FA`
 - 샘플 과제: **주제 탐구 보고서**
 - 샘플 마감일: `prisma/seed.ts`에 정의된 **2026-09-20 23:59 (한국)**
 
-마감일은 실행 시점에 따라 D-Day 또는 기한 지남으로 표시될 수 있습니다. 시연 날짜가 지난 경우 새 과제를 만들어 현재 날짜에 맞춰 보여 주세요.
+`npm run db:seed`는 로컬 시연용 임시 비밀번호를 실행할 때 생성해 터미널에 한 번 출력합니다. 마감일은 실행 시점에 따라 D-Day 또는 기한 지남으로 표시될 수 있습니다. 시연 날짜가 지난 경우 새 과제를 만들어 현재 날짜에 맞춰 보여 주세요.
 
 </details>
 
@@ -228,7 +228,7 @@ npm run build
 npm run test:e2e
 ```
 
-E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres`), `4318` 포트의 결정적 로컬 AI 제공자, `3100` 포트의 빌드된 Next.js 서버를 사용합니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다. 교사 가입 테스트는 E2E 전용 `TEACHER_INVITE_CODE`를 사용합니다.
+E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres-v2`), `4318` 포트의 결정적 로컬 AI 제공자, `3100` 포트의 빌드된 Next.js 서버를 사용합니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다. 교사 가입 테스트는 E2E 전용 `TEACHER_INVITE_CODE`를 사용합니다.
 
 ## 프로젝트 구조
 
@@ -258,6 +258,8 @@ tests/                   도메인 테스트·Playwright E2E
 - 이메일 인증·비밀번호 재설정·계정 삭제·학교 도메인 기반 교사 재직 인증은 아직 제공하지 않습니다. 실제 학교 운영에서는 승인 절차와 개인정보 보관·삭제 정책을 별도로 설계해야 합니다.
 
 공개 취약점 신고 방법은 [보안 정책](SECURITY.md)을 참고하세요. 운영 실행은 `npm run db:deploy` → `npm run build` → `npm start` 순서입니다. 자동 배포·PG 결제·외부 AI 계정 개설은 이 저장소의 범위가 아닙니다.
+
+운영 서버(systemd·로컬 PostgreSQL·Cloudflare Tunnel) 배포 절차는 [운영 배포 문서](docs/deployment.md)를 참고하세요.
 
 ## 로드맵
 
