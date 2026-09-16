@@ -54,9 +54,9 @@ async function main() {
     }
     const context = payload.messages[0].content;
     const expected = [
-      "E2E 데이터 분석",
-      "정보",
-      "데이터 선정",
+      "E2E 탐구 과제",
+      "탐구",
+      "주제 선정",
       "daysRemaining",
       "currentDate",
     ];
@@ -72,7 +72,7 @@ async function main() {
           {
             message: {
               content:
-                "정보 E2E 데이터 분석: 먼저 데이터 선정부터 시작하세요. 오늘 30분 계획을 함께 세워봅시다.",
+                "탐구 E2E 탐구 과제: 먼저 주제 선정부터 시작하세요. 오늘 30분 계획을 함께 세워봅시다.",
             },
           },
         ],

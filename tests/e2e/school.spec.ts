@@ -36,22 +36,22 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     "테스트 선생님",
   );
   await teacher.goto("/teacher/classes/new");
-  await teacher.getByLabel("클래스 이름").fill("E2E 정보 수업");
-  await teacher.getByLabel("과목", { exact: true }).fill("정보");
+  await teacher.getByLabel("클래스 이름").fill("E2E 탐구 수업");
+  await teacher.getByLabel("과목", { exact: true }).fill("탐구");
   await teacher.getByRole("button", { name: "클래스 생성" }).click();
   await expect(teacher.locator(".class-code")).toBeVisible();
   const code = await teacher.locator(".class-code").innerText();
   const classUrl = teacher.url();
   await teacher.getByRole("link", { name: "과제 등록", exact: true }).click();
-  await teacher.getByLabel("제목", { exact: true }).fill("E2E 데이터 분석");
+  await teacher.getByLabel("제목", { exact: true }).fill("E2E 탐구 과제");
   await teacher.getByLabel("종류", { exact: true }).selectOption("ASSESSMENT");
   await teacher.getByLabel("마감일", { exact: true }).fill("2026-09-20");
   await teacher
     .getByLabel("설명", { exact: true })
-    .fill("공공데이터를 활용하여 그래프를 제작하고 분석합니다.");
+    .fill("관심 있는 주제를 조사하고 결과를 분석합니다.");
   await teacher
     .getByLabel("평가기준", { exact: false })
-    .fill("데이터 선정, 시각화, 분석, 보고서");
+    .fill("주제 선정, 자료 조사, 분석, 보고서");
   await teacher.getByLabel("첨부파일", { exact: false }).setInputFiles({
     name: "rubric.txt",
     mimeType: "text/plain",
@@ -59,7 +59,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   });
   await teacher.getByRole("button", { name: "저장하기" }).click();
   await expect(
-    teacher.getByRole("heading", { name: "E2E 데이터 분석", exact: true }),
+    teacher.getByRole("heading", { name: "E2E 탐구 과제", exact: true }),
   ).toBeVisible();
   const assignmentId = teacher.url().split("/").at(-1)!;
   await register(
@@ -74,17 +74,17 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     .getByRole("button", { name: "클래스 참여", exact: true })
     .click();
   await expect(
-    student.getByRole("heading", { name: "E2E 정보 수업" }),
+    student.getByRole("heading", { name: "E2E 탐구 수업" }),
   ).toBeVisible();
   await student.goto("/student/dashboard");
   await expect(
     student
-      .getByRole("heading", { name: "E2E 데이터 분석", exact: true })
+      .getByRole("heading", { name: "E2E 탐구 과제", exact: true })
       .first(),
   ).toBeVisible();
   await student.goto(`/student/assignments/${assignmentId}`);
   await expect(
-    student.getByText("공공데이터를 활용하여 그래프를 제작하고 분석합니다."),
+    student.getByText("관심 있는 주제를 조사하고 결과를 분석합니다."),
   ).toBeVisible();
   const attachmentHref = await student
     .getByRole("link", { name: "rubric.txt" })
@@ -93,16 +93,69 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   expect((await studentContext.request.get(attachmentHref!)).status()).toBe(
     200,
   );
+  await student
+    .getByLabel("제출 내용", { exact: true })
+    .fill("주제를 정하고 참고 자료를 비교해 본 탐구 결과입니다.");
+  await student
+    .getByRole("button", { name: "과제 제출하기", exact: true })
+    .click();
+  await expect(student.getByText("검토 대기", { exact: true })).toBeVisible();
+  await teacher.reload();
+  await expect(teacher.getByRole("heading", { name: "제출물 검토" })).toBeVisible();
+  await expect(
+    teacher.getByRole("article").getByRole("heading", {
+      name: "테스트 학생",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await teacher.getByLabel("검토 결과", { exact: true }).selectOption("RETURNED");
+  await teacher
+    .getByLabel("피드백", { exact: true })
+    .fill("첫 문단에 참고 자료의 근거를 조금 더 적어 주세요.");
+  await teacher.getByRole("button", { name: "검토 저장", exact: true }).click();
+  await expect(
+    teacher.getByRole("article").locator("span.badge", { hasText: "수정 요청" }),
+  ).toBeVisible();
+  await student.reload();
+  await expect(student.getByText("수정 후 재제출", { exact: true })).toBeVisible();
+  await expect(
+    student.getByText("첫 문단에 참고 자료의 근거를 조금 더 적어 주세요.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await student.goto("/student/dashboard");
+  await expect(
+    student.getByRole("heading", { name: "E2E 탐구 과제", exact: true }).first(),
+  ).toBeVisible();
+  await student.goto(`/student/assignments/${assignmentId}`);
+  await student
+    .getByLabel("제출 내용", { exact: true })
+    .fill("근거 자료를 보완한 최종 탐구 결과입니다.");
+  await student
+    .getByRole("button", { name: "다시 제출하기", exact: true })
+    .click();
+  await expect(student.getByText("검토 대기", { exact: true })).toBeVisible();
+  await teacher.reload();
+  await teacher.getByLabel("검토 결과", { exact: true }).selectOption("REVIEWED");
+  await teacher
+    .getByLabel("피드백", { exact: true })
+    .fill("좋아요. 탐구 과정과 근거가 잘 정리되었습니다.");
+  await teacher.getByRole("button", { name: "검토 저장", exact: true }).click();
+  await expect(
+    teacher.getByRole("article").locator("span.badge", { hasText: "검토 완료" }),
+  ).toBeVisible();
+  await student.reload();
+  await expect(student.getByText("검토 완료", { exact: true })).toBeVisible();
   await student.getByRole("button", { name: "즐겨찾기", exact: true }).click();
   await student.getByLabel("AI에게 질문").fill("오늘 30분 동안 할 일을 알려줘");
   await student.getByRole("button", { name: "질문 보내기" }).click();
   await expect(student.locator(".message.assistant")).toContainText(
-    "먼저 데이터 선정",
+    "먼저 주제 선정",
   );
   await student.reload();
   await expect(student.locator(".message.user")).toContainText("오늘 30분");
   await expect(student.locator(".message.assistant")).toContainText(
-    "먼저 데이터 선정",
+    "먼저 주제 선정",
   );
   const learner = await db.user.findUniqueOrThrow({
     where: { email: `student-${stamp}@example.com` },
@@ -133,7 +186,6 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     (await db.aIUsage.findUniqueOrThrow({ where: { id: usage.id } })).count,
   ).toBe(10);
   expect((await request("마지막 질문")).status()).toBe(429);
-  await student.getByRole("button", { name: "완료 처리", exact: true }).click();
   await expect(
     student.getByRole("button", { name: "완료됨 · 취소하기" }),
   ).toBeVisible();
@@ -245,10 +297,23 @@ test("landing, reduced motion and mobile navigation have usable layouts", async 
   browser,
 }) => {
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: /할 일은 한눈에/ }),
-  ).toBeVisible();
-  await page.locator(".learning-scene canvas").waitFor({ timeout: 20000 });
+  await expect(page.locator(".cinema-caption h1")).toBeVisible();
+  const film = page.locator(".cinema-media video");
+  await expect
+    .poll(() => film.evaluate((v: HTMLVideoElement) => v.readyState))
+    .toBeGreaterThanOrEqual(2);
+  await page.getByRole("button", { name: "시연 영상 일시정지" }).click();
+  await expect
+    .poll(() => film.evaluate((v: HTMLVideoElement) => v.paused))
+    .toBe(true);
+  await film.evaluate((v: HTMLVideoElement) => {
+    v.currentTime = 10;
+  });
+  await expect(page.locator(".cinema-caption h1")).toContainText(
+    "나를 아는 AI",
+  );
+  await page.locator(".product-experience").scrollIntoViewIfNeeded();
+  await page.locator(".live-product-scene canvas").waitFor({ timeout: 20000 });
   for (const section of await page.locator(".reveal-ready").all()) {
     await section.scrollIntoViewIfNeeded();
     await expect(section).toHaveClass(/reveal-visible/);
@@ -265,7 +330,12 @@ test("landing, reduced motion and mobile navigation have usable layouts", async 
   });
   const mobile = await mobileContext.newPage();
   await mobile.goto("/");
-  await expect(mobile.locator(".scene-fallback")).toBeVisible();
+  await expect(mobile.locator(".cinema-media video")).toBeVisible();
+  await expect
+    .poll(() =>
+      mobile.locator("video").evaluate((v: HTMLVideoElement) => v.paused),
+    )
+    .toBe(true);
   expect(
     await mobile.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

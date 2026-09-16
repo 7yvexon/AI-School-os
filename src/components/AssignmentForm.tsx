@@ -43,7 +43,7 @@ export function AssignmentForm({
             defaultValue={assignment?.title}
             required
             maxLength={150}
-            placeholder="예: 공공데이터 시각화 수행평가"
+            placeholder="예: 주제 탐구 보고서"
           />
         </div>
         <div className="field">
@@ -89,7 +89,7 @@ export function AssignmentForm({
             name="rubric"
             defaultValue={assignment?.rubric}
             maxLength={5000}
-            placeholder="데이터 선정\n시각화\n분석\n보고서 작성"
+            placeholder="주제 선정\n자료 조사\n분석\n보고서 작성"
             style={{ minHeight: 100 }}
           />
         </div>

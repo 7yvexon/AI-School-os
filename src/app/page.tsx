@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
-  ArrowDown,
   Check,
   BookOpen,
   Sparkles,
@@ -9,11 +8,14 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { LearningScene, Reveal } from "@/components/LandingMotion";
+import { Reveal } from "@/components/LandingMotion";
+import { ProductCinema, ProductExperience } from "@/components/ProductCinema";
+import "./landing.css";
+import "./cinema.css";
 
 export default function Home() {
   return (
-    <main className="landing" id="main-content">
+    <main className="landing cinematic-landing" id="main-content">
       <header className="landing-header">
         <nav className="landing-nav" aria-label="메인 메뉴">
           <Logo />
@@ -31,65 +33,8 @@ export default function Home() {
           </div>
         </nav>
       </header>
-      <section className="landing-hero">
-        <div className="landing-hero-copy">
-          <span className="intro-tag">
-            <span /> 나의 학교생활, 더 가볍게
-          </span>
-          <h1>
-            할 일은 한눈에.
-            <br />
-            막막함은 <span>가볍게.</span>
-          </h1>
-          <p>
-            과제부터 수행평가, 시험 일정까지.
-            <br />
-            AI와 함께, 나만의 속도로 학교생활을 시작하세요.
-          </p>
-          <div className="landing-cta">
-            <Link className="btn btn-primary" href="/register">
-              무료로 시작하기 <ArrowUpRight size={18} />
-            </Link>
-            <a href="#features" className="btn btn-ghost">
-              어떤 서비스인가요? <ArrowDown size={15} />
-            </a>
-          </div>
-          <div className="hero-note">
-            <span className="tiny-avatars">
-              <i>학</i>
-              <i>생</i>
-              <i>쌤</i>
-            </span>
-            <span>학생과 선생님을 잇는 하나의 공간</span>
-          </div>
-        </div>
-        <div className="hero-art">
-          <div className="art-halo" />
-          <LearningScene />
-          <div className="floating-label label-top">
-            <span className="label-icon">
-              <Check size={18} />
-            </span>
-            <div>
-              <strong>수행평가 준비 완료!</strong>
-              <small>작은 성취가 쌓이는 하루</small>
-            </div>
-          </div>
-          <div className="floating-label label-bottom">
-            <span className="label-icon purple">
-              <Sparkles size={18} />
-            </span>
-            <div>
-              <strong>오늘 30분, 뭐부터 할까?</strong>
-              <small>과제를 이해하는 AI 도우미</small>
-            </div>
-          </div>
-        </div>
-        <div className="hero-scroll">
-          <span>SCROLL TO EXPLORE</span>
-          <ArrowDown size={16} />
-        </div>
-      </section>
+      <ProductCinema />
+      <ProductExperience />
       <section className="landing-statement" id="features">
         <Reveal>
           <span className="eyebrow">LESS WORRY, MORE POSSIBILITY</span>
@@ -138,8 +83,8 @@ export default function Home() {
               {[
                 {
                   color: "blue",
-                  subject: "정보",
-                  title: "공공데이터 시각화 수행평가",
+                  subject: "탐구",
+                  title: "주제 탐구 보고서",
                   date: "D-3",
                 },
                 {
@@ -185,16 +130,16 @@ export default function Home() {
                 <Sparkles size={16} /> AI 과제 도우미
               </div>
               <p>
-                정보 수행평가를 준비하는 첫 30분,
+                탐구 과제를 준비하는 첫 30분,
                 <br />
                 이렇게 시작해 볼까요?
               </p>
               <ol>
                 <li>
-                  <span>10분</span> 관심 있는 공공데이터 주제 고르기
+                  <span>10분</span> 관심 있는 탐구 주제 고르기
                 </li>
                 <li>
-                  <span>15분</span> 데이터와 필요한 항목 찾아보기
+                  <span>15분</span> 참고 자료와 필요한 항목 찾아보기
                 </li>
                 <li>
                   <span>5분</span> 내일 할 일 세 줄로 정리하기
@@ -249,7 +194,7 @@ export default function Home() {
             <div className="class-preview-icon">
               <GraduationCap size={48} />
             </div>
-            <h3>정보과학 2학년</h3>
+            <h3>2학년 탐구 수업</h3>
             <p>우리 반의 새로운 학습 공간</p>
             <div className="invite-preview">
               <small>클래스 초대 코드 예시</small>
@@ -266,6 +211,13 @@ export default function Home() {
         </Reveal>
       </section>
       <section className="landing-benefits">
+        <Reveal className="benefits-heading">
+          <span className="eyebrow">A LITTLE MORE POSSIBILITY</span>
+          <h2>
+            작은 시작이 만드는
+            <br />더 큰 가능성.
+          </h2>
+        </Reveal>
         <Reveal className="benefit-grid">
           {[
             {
@@ -310,6 +262,9 @@ export default function Home() {
         <Logo />
         <p>AI School OS · 학생과 선생님을 위한 학습 공간</p>
         <span>고등학교 모의창업 MVP 프로젝트</span>
+        <div className="footer-wordmark" aria-hidden="true">
+          Your School. Your OS.
+        </div>
       </footer>
     </main>
   );

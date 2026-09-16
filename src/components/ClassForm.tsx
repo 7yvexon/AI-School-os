@@ -17,7 +17,7 @@ export function ClassForm() {
             name="name"
             required
             maxLength={80}
-            placeholder="정보과학 2학년"
+            placeholder="2학년 탐구 수업"
           />
         </div>
         <div className="field">

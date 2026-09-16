@@ -1,0 +1,310 @@
+.cinematic-landing .landing-nav {
+  max-width: 1500px;
+  height: 68px;
+  padding-inline: 5vw;
+}
+.cinematic-landing .landing-header {
+  background: #fff;
+}
+.product-cinema {
+  height: calc(100svh - 82px);
+  min-height: 640px;
+  max-height: 1100px;
+  margin: 0 18px;
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+  background: #b9b2a6;
+  color: white;
+}
+.cinema-media,
+.cinema-media video,
+.film-render-scene,
+.film-render-scene canvas {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+.cinema-media video {
+  object-fit: cover;
+}
+.cinema-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, #0c111d88, transparent 65%),
+    linear-gradient(0deg, #10162275, transparent 35%);
+  pointer-events: none;
+}
+.cinema-caption {
+  position: absolute;
+  left: 8%;
+  top: 29%;
+  max-width: 470px;
+  animation: caption-arrive 0.8s ease both;
+}
+.cinema-caption > span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+}
+.cinema-caption h1 {
+  color: white;
+  font-size: clamp(32px, 3.4vw, 54px);
+  font-weight: 750;
+  letter-spacing: -0.05em;
+  line-height: 1.38;
+  margin: 22px 0;
+}
+.cinema-caption p {
+  font-size: 13px;
+  color: #ffffffe0;
+  line-height: 1.9;
+  max-width: 330px;
+  word-break: keep-all;
+}
+.cinema-caption > a {
+  margin-top: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  border-bottom: 1px solid #ffffff66;
+  padding-bottom: 9px;
+}
+.cinema-bottom {
+  position: absolute;
+  bottom: 56px;
+  left: 8%;
+  right: 5%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.cinema-bottom > strong {
+  font-size: clamp(28px, 3vw, 48px);
+  letter-spacing: -0.06em;
+  font-weight: 750;
+}
+.cinema-bottom > strong > span {
+  margin-left: 50px;
+}
+.cinema-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.cinema-controls button {
+  background: #ffffff14;
+  border: 1px solid #ffffff55;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  color: white;
+  cursor: pointer;
+}
+.cinema-progress {
+  display: block;
+  width: 75px;
+  height: 2px;
+  background: #ffffff40;
+  overflow: hidden;
+}
+.cinema-progress i {
+  height: 100%;
+  width: 100%;
+  display: block;
+  background: white;
+  transform-origin: left;
+  animation: film-progress linear both;
+}
+.cinema-scroll {
+  position: absolute;
+  bottom: 18px;
+  left: calc(50% - 10px);
+  opacity: 0.65;
+}
+.product-experience {
+  height: 190svh;
+  background: #f4f5f7;
+  margin-top: 18px;
+}
+.experience-pin {
+  height: 100svh;
+  min-height: 680px;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+}
+.live-product-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.live-product-scene canvas {
+  width: 100%;
+  height: 100%;
+}
+.experience-copy {
+  position: absolute;
+  left: 10%;
+  top: 33%;
+  z-index: 2;
+  max-width: 46%;
+  pointer-events: none;
+}
+.experience-copy > span {
+  color: #9099a8;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+}
+.experience-copy h2 {
+  font-size: clamp(30px, 3.2vw, 49px);
+  letter-spacing: -0.05em;
+  line-height: 1.45;
+  font-weight: 750;
+  margin: 22px 0;
+}
+.experience-copy p {
+  font-size: 16px;
+  line-height: 1.95;
+  color: #7c8797;
+}
+.experience-copy a {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 30px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3278f6;
+  pointer-events: auto;
+}
+.experience-bottom {
+  position: absolute;
+  bottom: 25px;
+  right: 6%;
+  font-size: 10px;
+  color: #909aa8;
+}
+.cinematic-landing .landing-statement {
+  padding-block: 170px;
+}
+.cinematic-landing .story-grid {
+  max-width: 1150px;
+}
+.cinematic-landing .story-copy h2,
+.cinematic-landing .benefits-heading h2 {
+  font-weight: 750;
+}
+@keyframes caption-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes film-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (max-width: 800px) {
+  .product-cinema {
+    margin: 0 10px;
+    min-height: 730px;
+    height: calc(100svh - 80px);
+    border-radius: 20px;
+  }
+  .cinema-media video {
+    object-position: 65% center;
+  }
+  .cinema-shade {
+    background: linear-gradient(
+      0deg,
+      #111823e6,
+      #11182399 42%,
+      transparent 78%
+    );
+  }
+  .cinema-caption {
+    top: auto;
+    bottom: 180px;
+    left: 7%;
+  }
+  .cinema-caption h1 {
+    font-size: 34px;
+  }
+  .cinema-caption p {
+    max-width: 270px;
+    font-size: 12px;
+  }
+  .cinema-caption > a {
+    margin-top: 15px;
+  }
+  .cinema-bottom {
+    left: 7%;
+    bottom: 45px;
+    display: block;
+  }
+  .cinema-bottom > strong {
+    font-size: 25px;
+  }
+  .cinema-bottom > strong > span {
+    margin-left: 20px;
+  }
+  .cinema-controls {
+    margin-top: 24px;
+  }
+  .product-experience {
+    height: auto;
+  }
+  .experience-pin {
+    height: 1050px;
+    position: relative;
+  }
+  .experience-copy {
+    left: 8%;
+    top: 80px;
+    max-width: 90%;
+  }
+  .experience-copy h2 {
+    font-size: 31px;
+  }
+  .experience-copy p {
+    font-size: 14px;
+  }
+  .live-product-scene {
+    top: 400px;
+    height: 620px;
+  }
+  .experience-bottom {
+    bottom: 15px;
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cinema-caption,
+  .cinema-progress i {
+    animation: none;
+  }
+  .product-experience {
+    height: auto;
+  }
+  .experience-pin {
+    position: relative;
+  }
+}

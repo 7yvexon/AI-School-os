@@ -11,6 +11,7 @@ import { rateLimit } from "@/lib/rate-limit";
 const text = (max: number) =>
   z.string().trim().min(1, "필수 항목을 입력해 주세요.").max(max);
 const due = z.iso.date().transform((v) => new Date(`${v}T23:59:59+09:00`));
+const reviewStatus = z.enum(["RETURNED", "REVIEWED"]);
 export type ActionState = { error?: string; success?: string };
 function message(e: unknown) {
   return e instanceof z.ZodError
@@ -178,6 +179,93 @@ export async function mutate(
       if (user.role !== "TEACHER" || !a) throw Error();
       await db.assignment.delete({ where: { id } });
       target = `/teacher/classes/${a.classId}`;
+    } else if (op === "submission") {
+      if (user.role !== "STUDENT") throw Error();
+      const assignmentId = text(50).parse(form.get("assignmentId"));
+      if (!(await accessibleAssignment(assignmentId, user))) throw Error();
+      const content = text(20000).parse(form.get("content"));
+      const existing = await db.submission.findUnique({
+        where: {
+          assignmentId_studentId: {
+            assignmentId,
+            studentId: user.id,
+          },
+        },
+      });
+      if (existing?.status === "REVIEWED")
+        return {
+          error: "검토가 완료된 제출물은 수정할 수 없습니다. 반려된 뒤 다시 제출해 주세요.",
+        };
+      await db.$transaction(async (tx) => {
+        await tx.submission.upsert({
+          where: {
+            assignmentId_studentId: {
+              assignmentId,
+              studentId: user.id,
+            },
+          },
+          create: {
+            assignmentId,
+            studentId: user.id,
+            content,
+            status: "SUBMITTED",
+            submittedAt: new Date(),
+          },
+          update: {
+            content,
+            status: "SUBMITTED",
+            submittedAt: new Date(),
+            reviewedAt: null,
+            feedback: "",
+          },
+        });
+        await tx.assignmentProgress.upsert({
+          where: {
+            userId_assignmentId: {
+              userId: user.id,
+              assignmentId,
+            },
+          },
+          create: { userId: user.id, assignmentId, completed: true },
+          update: { completed: true },
+        });
+      });
+      target = `/student/assignments/${assignmentId}`;
+    } else if (op === "submission-review") {
+      if (user.role !== "TEACHER") throw Error();
+      const submissionId = text(50).parse(form.get("submissionId"));
+      const status = reviewStatus.parse(form.get("status"));
+      const feedback = z.string().trim().max(5000).parse(form.get("feedback"));
+      const submission = await db.submission.findFirst({
+        where: {
+          id: submissionId,
+          assignment: { class: { teacherId: user.id } },
+        },
+      });
+      if (!submission) throw Error();
+      if (status === "RETURNED" && !feedback)
+        return { error: "반려할 때는 학생에게 전달할 의견을 입력해 주세요." };
+      await db.$transaction(async (tx) => {
+        await tx.submission.update({
+          where: { id: submissionId },
+          data: { status, feedback, reviewedAt: new Date() },
+        });
+        await tx.assignmentProgress.upsert({
+          where: {
+            userId_assignmentId: {
+              userId: submission.studentId,
+              assignmentId: submission.assignmentId,
+            },
+          },
+          create: {
+            userId: submission.studentId,
+            assignmentId: submission.assignmentId,
+            completed: status === "REVIEWED",
+          },
+          update: { completed: status === "REVIEWED" },
+        });
+      });
+      target = `/teacher/assignments/${submission.assignmentId}`;
     } else if (op === "attachment-delete") {
       if (user.role !== "TEACHER") throw Error();
       const id = text(50).parse(form.get("id"));
