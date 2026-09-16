@@ -14,7 +14,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "dev:plan": "tsx scripts/set-plan.ts",
     "test:e2e": "playwright test",
-    "format": "prettier --write src scripts tests prisma/seed.ts *.ts *.json *.md",
+    "format": "prettier --write src scripts tests prisma/seed.ts docs/*.md .github/*.md *.ts *.json *.md",
     "dev:db": "tsx scripts/local-db.ts"
   },
   "dependencies": {
