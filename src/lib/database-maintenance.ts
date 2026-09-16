@@ -8,7 +8,8 @@ export async function cleanupExpiredRecords(
 ) {
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 1000)
     throw new RangeError("Cleanup batch size must be between 1 and 1000.");
-  if (!Number.isFinite(now.getTime())) throw new RangeError("Invalid cleanup time.");
+  if (!Number.isFinite(now.getTime()))
+    throw new RangeError("Invalid cleanup time.");
 
   // Index-backed batches limit lock duration. Concurrent maintenance workers skip
   // rows already being cleaned instead of competing for the same locks.

@@ -5,11 +5,11 @@ import { ActionMessage } from "./ActionMessage";
 import { SubmitButton } from "./SubmitButton";
 export function DeleteButton({
   id,
-  op = "delete",
-  label = "과제 삭제",
+  op = "assignment-archive",
+  label = "과제 보관",
 }: {
   id: string;
-  op?: "delete" | "attachment-delete" | "event-delete";
+  op?: "delete" | "assignment-archive" | "attachment-delete" | "event-delete";
   label?: string;
 }) {
   const [state, action] = useActionState<ActionState, FormData>(mutate, {});
@@ -18,7 +18,11 @@ export function DeleteButton({
       action={action}
       onSubmit={(event) => {
         if (
-          !window.confirm(`${label}하시겠습니까? 삭제 후 복구할 수 없습니다.`)
+          !window.confirm(
+            op === "assignment-archive" || op === "delete"
+              ? "과제를 보관하시겠습니까? 학생 화면에서 숨겨지고 나중에 복원할 수 있습니다."
+              : `${label}하시겠습니까? 삭제 후 복구할 수 없습니다.`,
+          )
         )
           event.preventDefault();
       }}

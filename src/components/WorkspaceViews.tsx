@@ -13,7 +13,14 @@ import {
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { accessibleAssignment } from "@/lib/access";
-import { dailyLimit, dayKey, daysLeft, dday, typeLabels } from "@/lib/domain";
+import {
+  dailyLimit,
+  dayKey,
+  daysLeft,
+  dday,
+  isAssignmentType,
+  typeLabels,
+} from "@/lib/domain";
 import { aiConfigured } from "@/lib/ai";
 import { AssignmentRow } from "./AssignmentRow";
 import { JoinClassForm } from "./JoinClassForm";
@@ -23,6 +30,13 @@ import { DeleteButton } from "./DeleteButton";
 import { Chat } from "./Chat";
 import { SubmissionForm } from "./SubmissionForm";
 import { SubmissionReviewForm } from "./SubmissionReviewForm";
+import { AiConsentForm } from "./AiConsentForm";
+import { RestoreButton } from "./RestoreButton";
+import { RotateClassCodeButton } from "./RotateClassCodeButton";
+import { RemoveMemberButton } from "./RemoveMemberButton";
+import { AiDataDeleteButton } from "./AiDataDeleteButton";
+import { RestoreMemberButton } from "./RestoreMemberButton";
+import { MAX_AI_MESSAGES_ON_PAGE } from "@/lib/limits";
 
 type Role = "STUDENT" | "TEACHER";
 export function Heading({
@@ -53,7 +67,7 @@ export function Empty({ children }: { children: React.ReactNode }) {
 function scope(user: { id: string; role: Role }) {
   return user.role === "TEACHER"
     ? { teacherId: user.id }
-    : { members: { some: { userId: user.id } } };
+    : { members: { some: { userId: user.id, removedAt: null } } };
 }
 
 export async function Dashboard({ role }: { role: Role }) {
@@ -62,10 +76,12 @@ export async function Dashboard({ role }: { role: Role }) {
   const [classes, assignments, usage, events] = await Promise.all([
     db.class.findMany({
       where: scope(user),
-      include: { _count: { select: { members: true } } },
+      include: {
+        _count: { select: { members: { where: { removedAt: null } } } },
+      },
     }),
     db.assignment.findMany({
-      where: { class: scope(user) },
+      where: { class: scope(user), archivedAt: null },
       include: { class: true, progress: { where: { userId: user.id } } },
       orderBy: { dueAt: "asc" },
     }),
@@ -335,7 +351,12 @@ export async function Classes({ role }: { role: Role }) {
     where: scope(user),
     include: {
       teacher: { select: { name: true } },
-      _count: { select: { members: true, assignments: true } },
+      _count: {
+        select: {
+          members: { where: { removedAt: null } },
+          assignments: { where: { archivedAt: null } },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -406,6 +427,7 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
     include: {
       teacher: { select: { name: true } },
       assignments: {
+        where: role === "TEACHER" ? {} : { archivedAt: null },
         include: { class: true, progress: { where: { userId: user.id } } },
         orderBy: { dueAt: "asc" },
       },
@@ -420,6 +442,10 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
     },
   });
   if (!cls) notFound();
+  const activeAssignments = cls.assignments.filter((a) => !a.archivedAt);
+  const archivedAssignments = cls.assignments.filter((a) => a.archivedAt);
+  const activeMembers = cls.members.filter((m) => !m.removedAt);
+  const removedMembers = cls.members.filter((m) => m.removedAt);
   return (
     <>
       <Heading
@@ -431,9 +457,12 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
         <div className="hero-banner">
           <div>
             <h2>학생 초대 코드</h2>
-            <p>학생에게 아래 코드를 공유해 주세요.</p>
+            <p>코드를 재발급하면 기존 코드는 더 이상 사용할 수 없습니다.</p>
           </div>
-          <code className="class-code">{cls.code}</code>
+          <div className="detail-actions">
+            <code className="class-code">{cls.code}</code>
+            <RotateClassCodeButton classId={cls.id} />
+          </div>
         </div>
       )}
       <div className="section-heading">
@@ -449,7 +478,7 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
         )}
       </div>
       <div className="assignment-list">
-        {cls.assignments.map((a) => (
+        {activeAssignments.map((a) => (
           <AssignmentRow
             key={a.id}
             assignment={a}
@@ -457,21 +486,34 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
           />
         ))}
       </div>
-      {!cls.assignments.length && <Empty>등록된 과제가 없어요.</Empty>}
+      {!activeAssignments.length && <Empty>등록된 과제가 없어요.</Empty>}
+      {role === "TEACHER" && archivedAssignments.length > 0 && (
+        <>
+          <div className="section-heading">
+            <h2>보관된 과제 {archivedAssignments.length}</h2>
+          </div>
+          <div className="assignment-list">
+            {archivedAssignments.map((a) => (
+              <AssignmentRow key={a.id} assignment={a} teacher />
+            ))}
+          </div>
+        </>
+      )}
       {role === "TEACHER" && (
         <>
           <div className="section-heading">
-            <h2>참여 학생 {cls.members.length}명</h2>
+            <h2>참여 학생 {activeMembers.length}명</h2>
           </div>
           <div className="card card-pad">
-            {cls.members.length ? (
-              cls.members.map((m) => (
+            {activeMembers.length ? (
+              activeMembers.map((m) => (
                 <div className="list-item" key={m.id}>
                   <h4>{m.user.name}</h4>
                   <p>
                     {m.user.school} {m.user.grade && `${m.user.grade}학년`}{" "}
                     {m.user.classroom && `${m.user.classroom}반`}
                   </p>
+                  <RemoveMemberButton memberId={m.id} />
                 </div>
               ))
             ) : (
@@ -480,6 +522,24 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
               </p>
             )}
           </div>
+          {removedMembers.length > 0 && (
+            <>
+              <div className="section-heading">
+                <h2>제외된 학생 {removedMembers.length}명</h2>
+              </div>
+              <div className="card card-pad">
+                {removedMembers.map((m) => (
+                  <div className="list-item" key={m.id}>
+                    <div>
+                      <h4>{m.user.name}</h4>
+                      <p>다시 초대하면 기존 기록을 계속 확인할 수 있습니다.</p>
+                    </div>
+                    <RestoreMemberButton memberId={m.id} />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
     </>
@@ -500,7 +560,8 @@ export async function Assignments({
   const list = await db.assignment.findMany({
     where: {
       class: scope(user),
-      ...(filter in typeLabels
+      archivedAt: null,
+      ...(isAssignmentType(filter)
         ? { type: filter as keyof typeof typeLabels }
         : {}),
       ...(favorite && role === "STUDENT"
@@ -564,7 +625,9 @@ export async function AssignmentDetail({
   id: string;
 }) {
   const user = await requireUser(role);
-  const assignment = await accessibleAssignment(id, user);
+  const assignment = await accessibleAssignment(id, user, {
+    includeArchived: role === "TEACHER",
+  });
   if (!assignment) notFound();
   const progress =
     role === "STUDENT"
@@ -576,13 +639,18 @@ export async function AssignmentDetail({
     role === "STUDENT"
       ? await db.aIConversation.findUnique({
           where: { userId_assignmentId: { userId: user.id, assignmentId: id } },
-          include: { messages: { orderBy: { createdAt: "asc" } } },
+          include: {
+            messages: {
+              orderBy: { createdAt: "desc" },
+              take: MAX_AI_MESSAGES_ON_PAGE,
+            },
+          },
         })
       : null;
   const members =
     role === "TEACHER"
       ? await db.classMember.findMany({
-          where: { classId: assignment.classId },
+          where: { classId: assignment.classId, removedAt: null },
           include: {
             user: {
               select: {
@@ -614,6 +682,10 @@ export async function AssignmentDetail({
           include: {
             student: {
               select: { name: true, grade: true, classroom: true },
+            },
+            reviews: {
+              orderBy: { createdAt: "desc" },
+              include: { reviewer: { select: { name: true } } },
             },
           },
           orderBy: { updatedAt: "desc" },
@@ -664,11 +736,18 @@ export async function AssignmentDetail({
               >
                 과제 수정
               </Link>
-              <DeleteButton id={id} />
+              {assignment.archivedAt ? (
+                <RestoreButton id={id} />
+              ) : (
+                <DeleteButton id={id} />
+              )}
             </>
           )}
         </div>
       </div>
+      {assignment.archivedAt && (
+        <div className="alert alert-error">이 과제는 보관된 상태입니다.</div>
+      )}
       <div className="detail-body">
         <div className="card card-pad">
           <h2 className="small-heading">무엇을 해야 하나요?</h2>
@@ -734,17 +813,23 @@ export async function AssignmentDetail({
             />
           </div>
           <div id="chat" style={{ marginTop: 24 }}>
-            <Chat
-              assignmentId={id}
-              initialMessages={(conversation?.messages ?? []).map((m) => ({
-                id: m.id,
-                role: m.role,
-                content: m.content,
-              }))}
-              configured={aiConfigured()}
-              initialUsed={usage?.count ?? 0}
-              limit={dailyLimit(user.plan)}
-            />
+            {user.aiConsentAt ? (
+              <Chat
+                assignmentId={id}
+                initialMessages={[...(conversation?.messages ?? [])]
+                  .reverse()
+                  .map((m) => ({
+                    id: m.id,
+                    role: m.role,
+                    content: m.content,
+                  }))}
+                configured={aiConfigured()}
+                initialUsed={usage?.count ?? 0}
+                limit={dailyLimit(user.plan)}
+              />
+            ) : (
+              <AiConsentForm />
+            )}
           </div>
         </>
       ) : (
@@ -754,7 +839,8 @@ export async function AssignmentDetail({
               <h2>학생별 진행 상황</h2>
               <p>
                 {members.filter((m) => m.user.progress[0]?.completed).length}/
-                {members.length}명 완료 · 제출된 과제는 아래에서 검토할 수 있어요.
+                {members.length}명 완료 · 제출된 과제는 아래에서 검토할 수
+                있어요.
               </p>
             </div>
           </div>
@@ -797,6 +883,15 @@ export async function AssignmentDetail({
                   status={item.status}
                   feedback={item.feedback}
                   submittedAt={item.submittedAt.toISOString()}
+                  updatedAt={item.updatedAt.toISOString()}
+                  reviews={item.reviews.map((review) => ({
+                    id: review.id,
+                    status:
+                      review.status === "RETURNED" ? "RETURNED" : "REVIEWED",
+                    feedback: review.feedback,
+                    createdAt: review.createdAt.toISOString(),
+                    reviewerName: review.reviewer.name,
+                  }))}
                 />
               ))
             ) : (
@@ -829,6 +924,21 @@ export async function Settings({ role }: { role: Role }) {
           classroom: user.classroom,
         }}
       />
+      {role === "STUDENT" && (
+        <div style={{ marginTop: 24 }}>
+          <AiConsentForm granted={Boolean(user.aiConsentAt)} />
+          <div style={{ marginTop: 16 }}>
+            <div className="card card-pad">
+              <h2 className="small-heading">AI 대화 기록</h2>
+              <p className="prose-like">
+                저장된 과제별 AI 대화를 모두 삭제할 수 있습니다. 사용량 통계는
+                유지됩니다.
+              </p>
+              <AiDataDeleteButton />
+            </div>
+          </div>
+        </div>
+      )}
       <div className="section-heading">
         <h2>내 플랜 · {user.plan}</h2>
       </div>

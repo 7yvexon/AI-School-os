@@ -1,5 +1,7 @@
 /* Reference-inspired editorial landing. Scoped away from the workspace UI. */
-.cinematic-landing .scene-fallback strong { color: #24364f; }
+.cinematic-landing .scene-fallback strong {
+  color: #24364f;
+}
 .cinematic-landing .landing-header {
   background: #ffffffed;
   border: 0;

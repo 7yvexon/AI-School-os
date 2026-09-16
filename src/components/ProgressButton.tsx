@@ -26,6 +26,7 @@ export function ProgressButton({
         }
         title={label}
         aria-label={label}
+        aria-pressed={value}
         type="submit"
       >
         {field === "completed" ? (

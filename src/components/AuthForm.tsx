@@ -5,7 +5,13 @@ import { authenticate, type ActionState } from "@/app/actions";
 import { ActionMessage } from "./ActionMessage";
 import { SubmitButton } from "./SubmitButton";
 
-export function AuthForm({ mode }: { mode: "login" | "register" }) {
+export function AuthForm({
+  mode,
+  teacherSignupEnabled = false,
+}: {
+  mode: "login" | "register";
+  teacherSignupEnabled?: boolean;
+}) {
   const [state, action] = useActionState<ActionState, FormData>(
     authenticate,
     {},
@@ -55,16 +61,30 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                   />
                   <label htmlFor="student">학생</label>
                 </div>
-                <div className="radio-option">
-                  <input
-                    id="teacher"
-                    type="radio"
-                    name="role"
-                    value="TEACHER"
-                  />
-                  <label htmlFor="teacher">선생님</label>
-                </div>
+                {teacherSignupEnabled && (
+                  <div className="radio-option">
+                    <input
+                      id="teacher"
+                      type="radio"
+                      name="role"
+                      value="TEACHER"
+                    />
+                    <label htmlFor="teacher">선생님</label>
+                  </div>
+                )}
               </div>
+              {teacherSignupEnabled && (
+                <>
+                  <label htmlFor="teacherInviteCode">교사 초대 코드</label>
+                  <input
+                    id="teacherInviteCode"
+                    name="teacherInviteCode"
+                    maxLength={200}
+                    autoComplete="off"
+                    placeholder="교사 계정으로 가입할 때만 입력"
+                  />
+                </>
+              )}
             </div>
           )}
           <div className="field">

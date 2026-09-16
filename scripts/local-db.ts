@@ -9,7 +9,7 @@ async function main() {
   if (!existsSync(".env"))
     await writeFile(
       ".env",
-      `DATABASE_URL="postgresql://school:school_dev_password@localhost:5432/school_os?schema=public"\nAUTH_SECRET="${randomBytes(32).toString("hex")}"\nAPP_URL="http://localhost:3000"\nAI_API_KEY=""\nAI_BASE_URL="https://api.openai.com/v1"\nAI_MODEL=""\n`,
+      `DATABASE_URL="postgresql://school:school_dev_password@localhost:5432/school_os?schema=public"\nAUTH_SECRET="${randomBytes(32).toString("hex")}"\nAPP_URL="http://localhost:3000"\nTRUST_PROXY="false"\nSERVER_ACTION_ALLOWED_ORIGINS=""\nTEACHER_INVITE_CODE=""\nAI_API_KEY=""\nAI_BASE_URL="https://api.openai.com/v1"\nAI_MODEL=""\n`,
       { flag: "wx" },
     );
   const pg = new EmbeddedPostgres({

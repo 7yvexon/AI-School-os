@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiContext, dailyLimit, dayKey, daysLeft } from "../src/lib/domain";
+import {
+  aiContext,
+  dailyLimit,
+  dayKey,
+  daysLeft,
+  isAssignmentType,
+} from "../src/lib/domain";
 test("D-Day uses Seoul calendar days across midnight rather than 24-hour durations", () => {
   const beforeMidnight = new Date("2026-09-08T14:59:00Z");
   assert.equal(dayKey(beforeMidnight), "2026-09-08");
@@ -15,7 +21,7 @@ test("Plan entitlements are enforced centrally", () => {
 });
 test("AI context includes task and deadline while treating task content as reference data", () => {
   const context = aiContext(
-    { name: "학생", school: "학교", grade: "2", classroom: "3" },
+    { grade: "2", classroom: "3" },
     {
       title: "보고서",
       description: "설명",
@@ -34,4 +40,12 @@ test("AI context includes task and deadline while treating task content as refer
     "완성본보다",
   ])
     assert.ok(context.includes(key));
+  assert.equal(context.includes('"name"'), false);
+  assert.equal(context.includes('"school"'), false);
+});
+test("Assignment filters accept only own enum keys", () => {
+  assert.equal(isAssignmentType("HOMEWORK"), true);
+  assert.equal(isAssignmentType("toString"), false);
+  assert.equal(isAssignmentType("__proto__"), false);
+  assert.equal(isAssignmentType(null), false);
 });

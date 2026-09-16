@@ -1,12 +1,14 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { Empty, Heading } from "@/components/WorkspaceViews";
+import { RemoveMemberButton } from "@/components/RemoveMemberButton";
 export default async function Page() {
   const user = await requireUser("TEACHER");
   const classes = await db.class.findMany({
     where: { teacherId: user.id },
     include: {
       members: {
+        where: { removedAt: null },
         include: {
           user: {
             select: { name: true, school: true, grade: true, classroom: true },
@@ -31,10 +33,13 @@ export default async function Page() {
           <div className="card card-pad">
             {c.members.map((m) => (
               <div className="list-item" key={m.id}>
-                <h4>{m.user.name}</h4>
-                <p>
-                  {m.user.school} {m.user.grade}학년 {m.user.classroom}반
-                </p>
+                <div>
+                  <h4>{m.user.name}</h4>
+                  <p>
+                    {m.user.school} {m.user.grade}학년 {m.user.classroom}반
+                  </p>
+                </div>
+                <RemoveMemberButton memberId={m.id} />
               </div>
             ))}
             {!c.members.length && (

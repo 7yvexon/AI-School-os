@@ -108,10 +108,13 @@ export function ProductCinema() {
   const video = useRef<HTMLVideoElement>(null);
   const [chapter, setChapter] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const [renderMode, setRenderMode] = useState(false);
+  const [renderMode] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("film-render"),
+  );
   const [failed, setFailed] = useState(false);
   useEffect(() => {
-    setRenderMode(new URLSearchParams(location.search).has("film-render"));
     const media = matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => {
       if (media.matches) {

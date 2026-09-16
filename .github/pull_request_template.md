@@ -5,6 +5,8 @@
 ## 확인한 내용
 
 - [ ] `npm run db:generate`
+- [ ] `npm run lint`
+- [ ] `npm run format:check`
 - [ ] `npm run test`
 - [ ] `npm run typecheck`
 - [ ] `npm run build`

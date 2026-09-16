@@ -4,6 +4,11 @@ export const typeLabels = {
   EXAM: "시험",
   MATERIAL: "준비물",
 };
+export function isAssignmentType(
+  value: unknown,
+): value is keyof typeof typeLabels {
+  return typeof value === "string" && Object.hasOwn(typeLabels, value);
+}
 export function dayKey(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",
@@ -25,7 +30,7 @@ export function dailyLimit(plan: string) {
   return plan === "PRO" ? 100 : 10;
 }
 export function aiContext(
-  student: { name: string; school: string; grade: string; classroom: string },
+  student: { grade: string; classroom: string },
   assignment: {
     title: string;
     description: string;

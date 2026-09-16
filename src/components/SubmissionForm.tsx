@@ -66,7 +66,11 @@ export function SubmissionForm({
         </div>
         {!locked && (
           <div
-            style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: 16,
+            }}
           >
             <SubmitButton>
               {status === "RETURNED" ? "다시 제출하기" : "과제 제출하기"}

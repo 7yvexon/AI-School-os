@@ -31,24 +31,27 @@ enum SubmissionStatus {
 }
 
 model User {
-  id            String               @id @default(cuid())
-  email         String               @unique
-  passwordHash  String
-  name          String
-  role          Role
-  plan          Plan                 @default(FREE)
-  school        String               @default("")
-  grade         String               @default("")
-  classroom     String               @default("")
-  createdAt     DateTime             @default(now())
-  sessions      Session[]
-  classes       Class[]
-  memberships   ClassMember[]
-  progress      AssignmentProgress[]
-  submissions   Submission[]
-  conversations AIConversation[]
-  usage         AIUsage[]
-  events        PersonalEvent[]
+  id                String               @id @default(cuid())
+  email             String               @unique
+  passwordHash      String
+  name              String
+  role              Role
+  plan              Plan                 @default(FREE)
+  school            String               @default("")
+  grade             String               @default("")
+  classroom         String               @default("")
+  createdAt         DateTime             @default(now())
+  sessions          Session[]
+  classes           Class[]
+  memberships       ClassMember[]
+  progress          AssignmentProgress[]
+  submissions       Submission[]
+  submissionReviews SubmissionReview[]
+  conversations     AIConversation[]
+  usage             AIUsage[]
+  events            PersonalEvent[]
+  teacherApprovedAt DateTime?
+  aiConsentAt       DateTime?
 }
 
 model Session {
@@ -76,15 +79,17 @@ model Class {
 }
 
 model ClassMember {
-  id       String   @id @default(cuid())
-  userId   String
-  classId  String
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  class    Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  joinedAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  classId   String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class     Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime  @default(now())
+  removedAt DateTime?
 
   @@unique([userId, classId])
   @@index([classId])
+  @@index([classId, removedAt])
 }
 
 model Assignment {
@@ -98,12 +103,13 @@ model Assignment {
   dueAt         DateTime
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
+  archivedAt    DateTime?
   progress      AssignmentProgress[]
   submissions   Submission[]
   conversations AIConversation[]
   attachments   Attachment[]
 
-  @@index([classId, dueAt])
+  @@index([classId, archivedAt, dueAt])
 }
 
 model AssignmentProgress {
@@ -111,7 +117,7 @@ model AssignmentProgress {
   userId       String
   assignmentId String
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   completed    Boolean    @default(false)
   favorite     Boolean    @default(false)
   updatedAt    DateTime   @updatedAt
@@ -121,22 +127,37 @@ model AssignmentProgress {
 }
 
 model Submission {
-  id           String           @id @default(cuid())
+  id           String             @id @default(cuid())
   assignmentId String
   studentId    String
   content      String
-  status       SubmissionStatus @default(SUBMITTED)
-  feedback     String           @default("")
-  submittedAt  DateTime         @default(now())
+  status       SubmissionStatus   @default(SUBMITTED)
+  feedback     String             @default("")
+  submittedAt  DateTime           @default(now())
   reviewedAt   DateTime?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  assignment   Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  student      User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  assignment   Assignment         @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  student      User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  reviews      SubmissionReview[]
 
   @@unique([assignmentId, studentId])
   @@index([assignmentId, status])
   @@index([studentId, updatedAt])
+}
+
+model SubmissionReview {
+  id           String           @id @default(cuid())
+  submissionId String
+  reviewerId   String
+  status       SubmissionStatus
+  feedback     String           @default("")
+  createdAt    DateTime         @default(now())
+  submission   Submission       @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer     User             @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId, createdAt])
+  @@index([reviewerId, createdAt])
 }
 
 model AIConversation {
@@ -144,7 +165,7 @@ model AIConversation {
   userId       String
   assignmentId String
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignment   Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment   Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   messages     AIMessage[]
   busyUntil    DateTime    @default(now())
 
@@ -189,9 +210,10 @@ model PersonalEvent {
 model Attachment {
   id           String     @id @default(cuid())
   assignmentId String
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   name         String
   mime         String
+  size         Int
   // SQL CHECK enforces 1..5 MiB, including writes outside the upload action.
   data         Bytes
 

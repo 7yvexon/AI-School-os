@@ -332,8 +332,8 @@ export function createSchoolFilm(host: HTMLElement, studio = false) {
       phone.position.set(mobile ? 0 : frame.x, frame.y, 0);
       phone.scale.setScalar(frame.scale);
       phone.rotation.set(
-        .04 + Math.sin(scroll * Math.PI) * .08,
-        frame.yaw * (mobile ? .6 : 1),
+        0.04 + Math.sin(scroll * Math.PI) * 0.08,
+        frame.yaw * (mobile ? 0.6 : 1),
         frame.roll,
       );
       camera.position.set(0, 0.5, mobile ? 13.5 : 12);

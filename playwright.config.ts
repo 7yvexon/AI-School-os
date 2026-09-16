@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+process.env.PLAYWRIGHT_BROWSERS_PATH ||= "0";
 process.env.DATABASE_URL =
   "postgresql://school:e2e_password@localhost:55433/school_e2e?schema=public";
 export default defineConfig({
@@ -14,7 +15,7 @@ export default defineConfig({
     browserName: "chromium",
   },
   webServer: {
-    command: "npx tsx scripts/e2e-server.ts",
+    command: "node --import tsx scripts/e2e-server.ts",
     url: "http://localhost:3100",
     timeout: 120000,
     reuseExistingServer: false,

@@ -8,7 +8,10 @@ export default async function Page() {
   const user = await requireUser("STUDENT");
   const [assignments, usage] = await Promise.all([
     db.assignment.findMany({
-      where: { class: { members: { some: { userId: user.id } } } },
+      where: {
+        archivedAt: null,
+        class: { members: { some: { userId: user.id, removedAt: null } } },
+      },
       include: {
         class: true,
         conversations: {
@@ -32,8 +35,8 @@ export default async function Page() {
       <div className="hero-banner">
         <div>
           <h2>
-            오늘 {dailyLimit(user.plan) - (usage?.count ?? 0)}번 더 질문할 수
-            있어요
+            오늘 {Math.max(0, dailyLimit(user.plan) - (usage?.count ?? 0))}번 더
+            질문할 수 있어요
           </h2>
           <p>{user.plan} · 과제마다 대화가 따로 저장됩니다.</p>
         </div>

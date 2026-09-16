@@ -10,7 +10,7 @@ export default async function Page({
 }) {
   const user = await requireUser("TEACHER");
   const { id } = await params;
-  const a = await accessibleAssignment(id, user);
+  const a = await accessibleAssignment(id, user, { includeArchived: true });
   if (!a) notFound();
   return (
     <>

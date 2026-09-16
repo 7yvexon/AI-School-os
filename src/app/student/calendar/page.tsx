@@ -24,7 +24,8 @@ export default async function Page({
   const [assignments, events] = await Promise.all([
     db.assignment.findMany({
       where: {
-        class: { members: { some: { userId: user.id } } },
+        archivedAt: null,
+        class: { members: { some: { userId: user.id, removedAt: null } } },
         dueAt: { gte: from, lt: until },
       },
     }),

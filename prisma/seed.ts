@@ -8,13 +8,18 @@ async function seed() {
   const passwordHash = await bcrypt.hash("SchoolDemo!2026", 12);
   const teacher = await db.user.upsert({
     where: { email: "teacher@example.com" },
-    update: { name: "선생님", school: "우리학교" },
+    update: {
+      name: "선생님",
+      school: "우리학교",
+      teacherApprovedAt: new Date(),
+    },
     create: {
       email: "teacher@example.com",
       name: "선생님",
       role: "TEACHER",
       passwordHash,
       school: "우리학교",
+      teacherApprovedAt: new Date(),
     },
   });
   const student = await db.user.upsert({
@@ -57,6 +62,7 @@ async function seed() {
       title: "주제 탐구 보고서",
       type: "ASSESSMENT",
       dueAt: new Date("2026-09-20T23:59:59+09:00"),
+      archivedAt: null,
       description:
         "관심 있는 주제를 정해 자료를 조사하고 결과를 분석합니다. 조사 과정과 참고 자료를 포함한 보고서를 작성하세요.",
       rubric:

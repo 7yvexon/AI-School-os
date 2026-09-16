@@ -1,17 +1,31 @@
+import "server-only";
 import { z } from "zod";
+import { MAX_AI_RESPONSE_CHARS } from "./limits";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 export function aiConfigured() {
-  return Boolean(
-    process.env.AI_API_KEY && process.env.AI_MODEL && process.env.AI_BASE_URL,
-  );
+  const base = process.env.AI_BASE_URL?.trim();
+  if (!process.env.AI_API_KEY || !process.env.AI_MODEL || !base) return false;
+  try {
+    const url = new URL(base);
+    if (url.username || url.password) return false;
+    return (
+      url.protocol === "https:" ||
+      (url.protocol === "http:" &&
+        (process.env.NODE_ENV !== "production" ||
+          (process.env.AI_ALLOW_INSECURE_HTTP_LOCALHOST === "true" &&
+            ["localhost", "127.0.0.1", "::1"].includes(url.hostname))))
+    );
+  } catch {
+    return false;
+  }
 }
 export async function completeChat(messages: ChatMessage[]) {
   if (!aiConfigured()) throw new Error("AI 연결이 아직 설정되지 않았습니다.");
-  const base = process.env.AI_BASE_URL!.replace(/\/+$/, "");
+  const base = process.env.AI_BASE_URL!.trim().replace(/\/+$/, "");
   const response = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: {
@@ -35,7 +49,9 @@ export async function completeChat(messages: ChatMessage[]) {
       choices: z
         .array(
           z.object({
-            message: z.object({ content: z.string().min(1).max(40000) }),
+            message: z.object({
+              content: z.string().min(1).max(MAX_AI_RESPONSE_CHARS),
+            }),
           }),
         )
         .min(1),

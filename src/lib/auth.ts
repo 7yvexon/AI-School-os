@@ -1,9 +1,13 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { db } from "./db";
 import { redirect } from "next/navigation";
-const cookieName = "school_session";
+const cookieName =
+  process.env.NODE_ENV === "production"
+    ? "__Host-school_session"
+    : "school_session";
 function hash(token: string) {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32)
@@ -22,21 +26,49 @@ export async function createSession(userId: string) {
     expires: expiresAt,
   });
 }
-export async function getUser() {
+export const getUser = cache(async function getUser() {
   const token = (await cookies()).get(cookieName)?.value;
   if (!token) return null;
   const session = await db.session.findUnique({
     where: { id: hash(token) },
-    include: { user: true },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          plan: true,
+          school: true,
+          grade: true,
+          classroom: true,
+          teacherApprovedAt: true,
+          aiConsentAt: true,
+        },
+      },
+    },
   });
   return session && session.expiresAt > new Date() ? session.user : null;
-}
+});
 export async function requireUser(role?: "STUDENT" | "TEACHER") {
   const user = await getUser();
   if (!user) redirect("/login");
   if (role && user.role !== role)
     redirect(`/${user.role.toLowerCase()}/dashboard`);
+  if (user.role === "TEACHER" && !user.teacherApprovedAt) redirect("/login");
   return user;
+}
+
+export function teacherSignupEnabled() {
+  return Boolean(process.env.TEACHER_INVITE_CODE?.trim());
+}
+
+export function validTeacherInvite(code: string) {
+  const expected = process.env.TEACHER_INVITE_CODE;
+  if (!expected) return false;
+  const provided = Buffer.from(code);
+  const target = Buffer.from(expected.trim());
+  return provided.length === target.length && timingSafeEqual(provided, target);
 }
 export async function logoutSession() {
   const token = (await cookies()).get(cookieName)?.value;

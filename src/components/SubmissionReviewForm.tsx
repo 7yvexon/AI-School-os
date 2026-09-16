@@ -6,6 +6,13 @@ import { ActionMessage } from "./ActionMessage";
 import { SubmitButton } from "./SubmitButton";
 
 type ReviewStatus = "SUBMITTED" | "RETURNED" | "REVIEWED";
+type ReviewRecord = {
+  id: string;
+  status: "RETURNED" | "REVIEWED";
+  feedback: string;
+  createdAt: string;
+  reviewerName: string;
+};
 
 export function SubmissionReviewForm({
   submissionId,
@@ -15,6 +22,8 @@ export function SubmissionReviewForm({
   status,
   feedback,
   submittedAt,
+  updatedAt,
+  reviews = [],
 }: {
   submissionId: string;
   studentName: string;
@@ -23,6 +32,8 @@ export function SubmissionReviewForm({
   status: ReviewStatus;
   feedback: string;
   submittedAt: string;
+  updatedAt: string;
+  reviews?: ReviewRecord[];
 }) {
   const [state, action] = useActionState<ActionState, FormData>(mutate, {});
   const statusLabel =
@@ -60,9 +71,33 @@ export function SubmissionReviewForm({
         >
           {content}
         </div>
+        {reviews.length > 0 && (
+          <details style={{ marginTop: 16 }}>
+            <summary>검토 기록 {reviews.length}개</summary>
+            <div style={{ marginTop: 10 }}>
+              {reviews.map((review) => (
+                <div className="list-item" key={review.id}>
+                  <div>
+                    <strong>
+                      {review.status === "REVIEWED" ? "검토 완료" : "수정 요청"}
+                    </strong>
+                    <p className="form-hint">
+                      {review.reviewerName} ·{" "}
+                      {new Date(review.createdAt).toLocaleString("ko-KR")}
+                    </p>
+                    {review.feedback && (
+                      <p className="prose-like">{review.feedback}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
         <form action={action} style={{ marginTop: 16 }}>
           <input type="hidden" name="op" value="submission-review" />
           <input type="hidden" name="submissionId" value={submissionId} />
+          <input type="hidden" name="updatedAt" value={updatedAt} />
           <div className="form-grid">
             <div className="field">
               <label htmlFor={`review-status-${submissionId}`}>검토 결과</label>
@@ -88,7 +123,11 @@ export function SubmissionReviewForm({
             </div>
           </div>
           <div
-            style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: 12,
+            }}
           >
             <SubmitButton pendingText="저장 중...">검토 저장</SubmitButton>
           </div>

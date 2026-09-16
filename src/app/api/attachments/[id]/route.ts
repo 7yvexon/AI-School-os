@@ -6,15 +6,18 @@ export async function GET(
 ) {
   const user = await getUser();
   if (!user) return new Response("로그인이 필요합니다.", { status: 401 });
+  if (user.role === "TEACHER" && !user.teacherApprovedAt)
+    return new Response("교사 승인이 필요합니다.", { status: 403 });
   const { id } = await params;
   const file = await db.attachment.findFirst({
     where: {
       id,
       assignment: {
+        ...(user.role === "TEACHER" ? {} : { archivedAt: null }),
         class:
           user.role === "TEACHER"
             ? { teacherId: user.id }
-            : { members: { some: { userId: user.id } } },
+            : { members: { some: { userId: user.id, removedAt: null } } },
       },
     },
   });
