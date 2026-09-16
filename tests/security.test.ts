@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { requestIp } from "../src/lib/request";
 import { createClassCode } from "../src/lib/class-code";
 import { attachmentMimeMatchesData } from "../src/lib/attachment";
+import { parseRuntimeConfig, RuntimeConfigError } from "../src/lib/env-core";
 
 test("request IP uses forwarded headers only when the proxy is trusted", () => {
   const previous = process.env.TRUST_PROXY;
@@ -72,5 +73,35 @@ test("attachment MIME checks require matching signatures", () => {
   assert.equal(
     attachmentMimeMatchesData("text/plain", new TextEncoder().encode("내용")),
     true,
+  );
+});
+
+test("runtime configuration validates production requirements without exposing values", () => {
+  const source = {
+    DATABASE_URL: "postgresql://school:password@localhost:5432/school_os",
+    AUTH_SECRET: "a".repeat(32),
+    APP_URL: "https://school.example",
+    TRUST_PROXY: "true",
+    NODE_ENV: "production",
+  };
+  const config = parseRuntimeConfig(source, true);
+  assert.equal(config.appUrl, source.APP_URL);
+  assert.equal(config.trustProxy, true);
+  assert.throws(
+    () => parseRuntimeConfig({ ...source, AUTH_SECRET: "short" }, true),
+    RuntimeConfigError,
+  );
+  assert.throws(
+    () =>
+      parseRuntimeConfig({ ...source, APP_URL: "http://school.example" }, true),
+    RuntimeConfigError,
+  );
+  assert.throws(
+    () =>
+      parseRuntimeConfig(
+        { ...source, SERVER_ACTION_ALLOWED_ORIGINS: "https://proxy.example" },
+        true,
+      ),
+    RuntimeConfigError,
   );
 });

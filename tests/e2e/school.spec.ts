@@ -389,6 +389,12 @@ test("landing, reduced motion and mobile navigation have usable layouts", async 
   page,
   browser,
 }) => {
+  const health = await page.context().request.get("/api/health");
+  expect(health.status()).toBe(200);
+  expect(await health.json()).toMatchObject({
+    status: "ok",
+    checks: { configuration: "ok", database: "ok" },
+  });
   await page.goto("/");
   await expect(page.locator(".cinema-caption h1")).toBeVisible();
   const film = page.locator(".cinema-media video");

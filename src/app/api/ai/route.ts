@@ -6,6 +6,7 @@ import { aiConfigured, completeChat, type ChatMessage } from "@/lib/ai";
 import { aiContext, dailyLimit, dayKey } from "@/lib/domain";
 import { RateLimitError, rateLimit } from "@/lib/rate-limit";
 import { hashIdentifier, requestIp } from "@/lib/request";
+import { getRuntimeConfig } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -13,7 +14,13 @@ const fail = (error: string, status: number, headers?: HeadersInit) =>
   Response.json({ error }, { status, headers });
 class ConsentRevokedError extends Error {}
 export async function POST(request: Request) {
-  const origin = process.env.APP_URL || new URL(request.url).origin;
+  let config;
+  try {
+    config = getRuntimeConfig();
+  } catch {
+    return fail("서버 설정을 확인해 주세요.", 503);
+  }
+  const origin = config.appUrl;
   if (request.headers.get("origin") !== new URL(origin).origin)
     return fail("허용되지 않은 요청입니다.", 403);
   const user = await getUser();

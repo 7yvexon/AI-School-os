@@ -4,15 +4,15 @@ import { cookies } from "next/headers";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { db } from "./db";
 import { redirect } from "next/navigation";
+import { getRuntimeConfig } from "./env";
 const cookieName =
   process.env.NODE_ENV === "production"
     ? "__Host-school_session"
     : "school_session";
 function hash(token: string) {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret || secret.length < 32)
-    throw new Error("AUTH_SECRET must contain at least 32 characters");
-  return createHmac("sha256", secret).update(token).digest("hex");
+  return createHmac("sha256", getRuntimeConfig().authSecret)
+    .update(token)
+    .digest("hex");
 }
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString("hex");
@@ -28,6 +28,7 @@ export async function createSession(userId: string) {
 }
 export const getUser = cache(async function getUser() {
   const token = (await cookies()).get(cookieName)?.value;
+  getRuntimeConfig();
   if (!token) return null;
   const session = await db.session.findUnique({
     where: { id: hash(token) },
