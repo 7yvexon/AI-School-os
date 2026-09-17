@@ -1,7 +1,7 @@
 "use client";
 export default function ErrorPage({ reset }: { reset: () => void }) {
   return (
-    <div className="content">
+    <main id="main-content" className="content">
       <div className="card card-pad" role="alert">
         <h1>잠시 연결이 원활하지 않아요</h1>
         <p>
@@ -11,6 +11,6 @@ export default function ErrorPage({ reset }: { reset: () => void }) {
           다시 시도
         </button>
       </div>
-    </div>
+    </main>
   );
 }

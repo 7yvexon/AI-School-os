@@ -43,7 +43,11 @@ export function ProgressButton({
         )}
       </button>
       {state.error && (
-        <span className="form-hint" style={{ color: "var(--red)" }}>
+        <span
+          className="form-hint"
+          style={{ color: "var(--red)" }}
+          role="alert"
+        >
           {state.error}
         </span>
       )}

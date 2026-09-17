@@ -64,6 +64,8 @@ async function stop(code: number) {
 }
 
 async function main() {
+  const e2eDatabasePort = Number(process.env.E2E_DATABASE_PORT ?? 55433);
+  const e2ePort = Number(process.env.E2E_PORT ?? 3100);
   const databaseDir = resolve(
     process.env.E2E_DATABASE_DIR ?? ".local/e2e-postgres-v2",
   );
@@ -72,7 +74,7 @@ async function main() {
   postgresDirectory = databaseDir;
   pg = new EmbeddedPostgres({
     databaseDir,
-    port: 55433,
+    port: e2eDatabasePort,
     user: "school",
     password: databasePassword,
     persistent: true,
@@ -94,7 +96,7 @@ async function main() {
   if (!result.rowCount) await pg.createDatabase("school_e2e");
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    DATABASE_URL: `postgresql://school:${databasePassword}@localhost:55433/school_e2e?schema=public`,
+    DATABASE_URL: `postgresql://school:${databasePassword}@localhost:${e2eDatabasePort}/school_e2e?schema=public`,
     AUTH_SECRET: randomBytes(32).toString("hex"),
     NODE_ENV: "test",
     APP_URL: "http://localhost:3100",
@@ -179,7 +181,7 @@ async function main() {
   await cleanupClient.end();
   const nextProcess = spawn(
     process.execPath,
-    ["node_modules/next/dist/bin/next", "start", "-p", "3100"],
+    ["node_modules/next/dist/bin/next", "start", "-p", String(e2ePort)],
     { env, stdio: "inherit", windowsHide: true },
   );
   next = nextProcess;

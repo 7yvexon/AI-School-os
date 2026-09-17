@@ -43,13 +43,14 @@ export function AuthForm({
                 name="name"
                 required
                 maxLength={40}
+                autoComplete="name"
                 placeholder="홍길동"
               />
             </div>
-          )}{" "}
-          {register && (
-            <div className="field">
-              <label>계정 유형</label>
+          )}
+          {register && teacherSignupEnabled ? (
+            <fieldset className="field">
+              <legend>계정 유형</legend>
               <div className="radio-row">
                 <div className="radio-option">
                   <input
@@ -61,32 +62,28 @@ export function AuthForm({
                   />
                   <label htmlFor="student">학생</label>
                 </div>
-                {teacherSignupEnabled && (
-                  <div className="radio-option">
-                    <input
-                      id="teacher"
-                      type="radio"
-                      name="role"
-                      value="TEACHER"
-                    />
-                    <label htmlFor="teacher">선생님</label>
-                  </div>
-                )}
-              </div>
-              {teacherSignupEnabled && (
-                <>
-                  <label htmlFor="teacherInviteCode">교사 초대 코드</label>
+                <div className="radio-option">
                   <input
-                    id="teacherInviteCode"
-                    name="teacherInviteCode"
-                    maxLength={200}
-                    autoComplete="off"
-                    placeholder="교사 계정으로 가입할 때만 입력"
+                    id="teacher"
+                    type="radio"
+                    name="role"
+                    value="TEACHER"
                   />
-                </>
-              )}
-            </div>
-          )}
+                  <label htmlFor="teacher">선생님</label>
+                </div>
+              </div>
+              <label htmlFor="teacherInviteCode">교사 초대 코드</label>
+              <input
+                id="teacherInviteCode"
+                name="teacherInviteCode"
+                maxLength={200}
+                autoComplete="off"
+                placeholder="교사 계정으로 가입할 때만 입력"
+              />
+            </fieldset>
+          ) : register ? (
+            <input type="hidden" name="role" value="STUDENT" />
+          ) : null}
           <div className="field">
             <label htmlFor="email">이메일</label>
             <input

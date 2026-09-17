@@ -4,7 +4,7 @@ import {
   BookOpen,
   ClipboardList,
   CalendarDays,
-  Sparkles,
+  MessageCircle,
   Settings,
   LogOut,
   Plus,
@@ -29,7 +29,7 @@ export function Sidebar({
         ["내 클래스", `${base}/classes`, BookOpen],
         ["과제 모아보기", `${base}/assignments`, ClipboardList],
         ["캘린더", `${base}/calendar`, CalendarDays],
-        ["AI 학습 도우미", `${base}/ai`, Sparkles],
+        ["AI 학습 도우미", `${base}/ai`, MessageCircle],
       ] as const)
     : ([
         ["대시보드", `${base}/dashboard`, LayoutDashboard],
@@ -38,7 +38,7 @@ export function Sidebar({
         ["학생 현황", `${base}/students`, Users],
       ] as const);
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" aria-label="주요 메뉴">
       <Logo href={`${base}/dashboard`} />
       <div className="nav-section">Workspace</div>
       {links.map(([label, href, Icon]) => (

@@ -16,7 +16,7 @@ async function register(
 ) {
   await page.goto("/register");
   await page.getByLabel("이름", { exact: true }).fill(name);
-  await page.getByLabel(role, { exact: true }).check();
+  await page.getByLabel(role, { exact: true }).check({ force: true });
   if (role === "선생님")
     await page
       .getByLabel("교사 초대 코드", { exact: true })
@@ -401,27 +401,21 @@ test("landing, reduced motion and mobile navigation have usable layouts", async 
     checks: { configuration: "ok", database: "ok" },
   });
   await page.goto("/");
-  await expect(page.locator(".cinema-caption h1")).toBeVisible();
-  const film = page.locator(".cinema-media video");
-  await expect
-    .poll(() => film.evaluate((v: HTMLVideoElement) => v.readyState))
-    .toBeGreaterThanOrEqual(2);
-  await page.getByRole("button", { name: "시연 영상 일시정지" }).click();
-  await expect
-    .poll(() => film.evaluate((v: HTMLVideoElement) => v.paused))
-    .toBe(true);
-  await film.evaluate((v: HTMLVideoElement) => {
-    v.currentTime = 10;
-  });
-  await expect(page.locator(".cinema-caption h1")).toContainText(
-    "나를 아는 AI",
-  );
-  await page.locator(".product-experience").scrollIntoViewIfNeeded();
-  await page.locator(".live-product-scene canvas").waitFor({ timeout: 20000 });
-  for (const section of await page.locator(".reveal-ready").all()) {
-    await section.scrollIntoViewIfNeeded();
-    await expect(section).toHaveClass(/reveal-visible/);
-  }
+  await expect(
+    page.getByRole("heading", {
+      name: "해야 할 일과 수업의 흐름을 한곳에서.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".hero-workspace")).toBeVisible();
+  await page.locator("#how-it-works").scrollIntoViewIfNeeded();
+  await expect(
+    page.getByRole("heading", {
+      name: "한 번 정리하면, 다음 행동이 보입니다.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".flow-step")).toHaveCount(3);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   await page.screenshot({
     path: "test-results/landing-desktop.png",
@@ -434,12 +428,13 @@ test("landing, reduced motion and mobile navigation have usable layouts", async 
   });
   const mobile = await mobileContext.newPage();
   await mobile.goto("/");
-  await expect(mobile.locator(".cinema-media video")).toBeVisible();
-  await expect
-    .poll(() =>
-      mobile.locator("video").evaluate((v: HTMLVideoElement) => v.paused),
-    )
-    .toBe(true);
+  await expect(
+    mobile.getByRole("heading", {
+      name: "해야 할 일과 수업의 흐름을 한곳에서.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(mobile.locator(".hero-workspace")).toBeVisible();
   expect(
     await mobile.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

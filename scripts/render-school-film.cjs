@@ -15,7 +15,7 @@ const path = require("node:path");
     page.on("console", (m) => {
       if (m.text().startsWith("Film:")) console.log(m.text());
     });
-    await page.goto("http://localhost:3000/?film-render=1");
+    await page.goto("http://localhost:3000/film-render?film-render=1");
     await page
       .locator(
         '.film-render-scene[data-ready="true"][data-background-ready="true"]',

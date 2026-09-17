@@ -6,6 +6,8 @@ export function ActionMessage({ state }: { state: ActionState }) {
     <div
       className={`alert ${state.error ? "alert-error" : "alert-success"}`}
       role={state.error ? "alert" : "status"}
+      aria-live={state.error ? "assertive" : "polite"}
+      aria-atomic="true"
     >
       {state.error || state.success}
     </div>

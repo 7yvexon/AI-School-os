@@ -6,9 +6,11 @@ import {
   Clock3,
   GraduationCap,
   Plus,
-  Sparkles,
+  MessageCircle,
   Users,
   ArrowUpRight,
+  Download,
+  Star,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
@@ -40,7 +42,6 @@ import { MAX_AI_MESSAGES_ON_PAGE } from "@/lib/limits";
 
 type Role = "STUDENT" | "TEACHER";
 export function Heading({
-  eyebrow,
   title,
   description,
 }: {
@@ -50,7 +51,6 @@ export function Heading({
 }) {
   return (
     <div className="page-heading">
-      {eyebrow && <span className="eyebrow">{eyebrow}</span>}
       <h1 className="page-title">{title}</h1>
       <p className="page-subtitle">{description}</p>
     </div>
@@ -126,7 +126,7 @@ export async function Dashboard({ role }: { role: Role }) {
           {
             label: "오늘 AI 사용",
             value: `${usage?.count ?? 0}/${dailyLimit(user.plan)}`,
-            icon: Sparkles,
+            icon: MessageCircle,
           },
         ]
       : [
@@ -145,7 +145,7 @@ export async function Dashboard({ role }: { role: Role }) {
         eyebrow={
           role === "STUDENT" ? "MY SCHOOL, MY PACE" : "TEACHER WORKSPACE"
         }
-        title={`안녕하세요, ${user.name}님 👋`}
+        title={`안녕하세요, ${user.name}님`}
         description={
           role === "STUDENT"
             ? "해야 할 일은 선명하게, 학교생활은 가볍게."
@@ -236,7 +236,7 @@ export async function Dashboard({ role }: { role: Role }) {
               <div className="section-heading">
                 <h2>오늘의 개인 일정</h2>
                 <Link className="text-link" href="/student/calendar">
-                  캘린더 →
+                  캘린더 <ArrowUpRight size={13} aria-hidden="true" />
                 </Link>
               </div>
               <div className="card card-pad">
@@ -259,7 +259,7 @@ export async function Dashboard({ role }: { role: Role }) {
           </div>
           <div className="card card-pad">
             <div className="stat-icon">
-              <Sparkles size={18} />
+              <MessageCircle size={18} />
             </div>
             <h3 style={{ margin: "0 0 10px" }}>
               {role === "STUDENT"
@@ -334,7 +334,7 @@ export async function Dashboard({ role }: { role: Role }) {
                 초기화
               </p>
               <Link className="text-link" href="/student/settings">
-                플랜 살펴보기 →
+                플랜 살펴보기 <ArrowUpRight size={13} aria-hidden="true" />
               </Link>
             </div>
           )}
@@ -599,7 +599,7 @@ export async function Assignments({
             className={`btn ${favorite ? "btn-primary" : "btn-secondary"}`}
             href={`${base}/assignments?favorite=true`}
           >
-            ★ 즐겨찾기
+            <Star size={15} aria-hidden="true" /> 즐겨찾기
           </Link>
         )}
       </div>
@@ -705,7 +705,8 @@ export async function AssignmentDetail({
             className="eyebrow"
             href={`/${role.toLowerCase()}/classes/${assignment.classId}`}
           >
-            {assignment.class.name} ↗
+            {assignment.class.name}{" "}
+            <ArrowUpRight size={13} aria-hidden="true" />
           </Link>
           <h1>{assignment.title}</h1>
           <p>
@@ -762,7 +763,7 @@ export async function AssignmentDetail({
               {assignment.attachments.map((a) => (
                 <div className="list-item" key={a.id}>
                   <a className="text-link" href={`/api/attachments/${a.id}`}>
-                    {a.name} ↓
+                    {a.name} <Download size={13} aria-hidden="true" />
                   </a>
                   {role === "TEACHER" && (
                     <DeleteButton

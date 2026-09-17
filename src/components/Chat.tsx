@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { MessageCircle, Send } from "lucide-react";
 type Message = { id: string; role: string; content: string };
 export function Chat({
   assignmentId,
@@ -21,6 +21,7 @@ export function Chat({
   const [error, setError] = useState("");
   const [used, setUsed] = useState(initialUsed);
   const end = useRef<HTMLDivElement>(null);
+  const limitReached = used >= limit;
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest" });
   }, [messages, busy]);
@@ -59,7 +60,7 @@ export function Chat({
       <div className="card-pad chat-heading">
         <div>
           <h2>
-            <Sparkles size={18} /> AI 과제 도우미
+            <MessageCircle size={18} /> AI 과제 도우미
           </h2>
           <p>이 과제의 설명과 평가기준을 알고 있어요.</p>
         </div>
@@ -70,7 +71,7 @@ export function Chat({
       <div className="chat-messages" aria-live="polite">
         {messages.length === 0 && (
           <div className="chat-welcome">
-            <Sparkles size={28} />
+            <MessageCircle size={28} />
             <h3>어디서부터 시작할까요?</h3>
             <p>완성본보다 스스로 해낼 수 있는 방법을 함께 찾아요.</p>
             {[
@@ -102,9 +103,14 @@ export function Chat({
         <div ref={end} />
       </div>
       {!configured && (
-        <div className="alert alert-error" style={{ margin: 12 }}>
+        <div className="alert alert-error" style={{ margin: 12 }} role="alert">
           AI 서비스 연결이 필요합니다. 관리자에게 문의해 주세요.
         </div>
+      )}
+      {limitReached && (
+        <p className="chat-limit" id="chat-limit" role="status">
+          오늘 질문 한도에 도달했어요. 한국 시간 자정에 다시 사용할 수 있습니다.
+        </p>
       )}
       {error && (
         <div className="alert alert-error" role="alert" style={{ margin: 12 }}>
@@ -114,15 +120,16 @@ export function Chat({
       <form className="chat-form" onSubmit={submit}>
         <textarea
           aria-label="AI에게 질문"
+          aria-describedby={limitReached ? "chat-limit" : undefined}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           maxLength={2000}
           placeholder="과제에 대해 궁금한 점을 물어보세요"
-          disabled={!configured || busy}
+          disabled={!configured || busy || limitReached}
         />
         <button
           className="btn btn-primary"
-          disabled={!configured || busy || !question.trim() || used >= limit}
+          disabled={!configured || busy || !question.trim() || limitReached}
           aria-label="질문 보내기"
         >
           <Send size={18} />

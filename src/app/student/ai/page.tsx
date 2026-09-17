@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { dailyLimit, dayKey } from "@/lib/domain";
 import { Empty, Heading } from "@/components/WorkspaceViews";
-import { Sparkles } from "lucide-react";
+import { ArrowUpRight, MessageCircle } from "lucide-react";
 export default async function Page() {
   const user = await requireUser("STUDENT");
   const [assignments, usage] = await Promise.all([
@@ -40,7 +40,7 @@ export default async function Page() {
           </h2>
           <p>{user.plan} · 과제마다 대화가 따로 저장됩니다.</p>
         </div>
-        <Sparkles className="hero-symbol" size={36} />
+        <MessageCircle className="hero-symbol" size={36} />
       </div>
       <div className="grid class-grid">
         {assignments.map((a) => (
@@ -54,7 +54,7 @@ export default async function Page() {
             <p>{a.conversations[0]?._count.messages ?? 0}개의 메시지</p>
             <div className="class-card-footer">
               <span>대화 열기</span>
-              <span>↗</span>
+              <ArrowUpRight size={16} aria-hidden="true" />
             </div>
           </Link>
         ))}

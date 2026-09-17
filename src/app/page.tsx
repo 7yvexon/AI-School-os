@@ -1,274 +1,282 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
-  Check,
   BookOpen,
-  Sparkles,
   CalendarDays,
-  GraduationCap,
+  Check,
+  ClipboardCheck,
+  MessageCircle,
+  Users,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { Reveal } from "@/components/LandingMotion";
-import { ProductCinema, ProductExperience } from "@/components/ProductCinema";
 import "./landing.css";
-import "./cinema.css";
+
+const tasks = [
+  {
+    subject: "탐구",
+    title: "주제 탐구 보고서",
+    date: "9월 20일",
+    urgent: true,
+  },
+  {
+    subject: "영어",
+    title: "나의 꿈 발표 준비",
+    date: "9월 22일",
+    urgent: false,
+  },
+  {
+    subject: "과학",
+    title: "탐구 보고서 작성",
+    date: "9월 24일",
+    urgent: false,
+  },
+];
 
 export default function Home() {
   return (
-    <main className="landing cinematic-landing" id="main-content">
+    <main className="landing" id="main-content">
       <header className="landing-header">
         <nav className="landing-nav" aria-label="메인 메뉴">
           <Logo />
           <div className="landing-links">
-            <a href="#features">서비스 소개</a>
-            <a href="#together">선생님과 함께</a>
+            <a href="#how-it-works">사용 방법</a>
+            <a href="#for-teachers">선생님과 함께</a>
           </div>
           <div className="nav-actions">
             <Link className="btn btn-ghost" href="/login">
               로그인
             </Link>
             <Link className="btn btn-primary" href="/register">
-              시작하기 <ArrowUpRight size={15} />
+              시작하기 <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
           </div>
         </nav>
       </header>
-      <ProductCinema />
-      <ProductExperience />
-      <section className="landing-statement" id="features">
-        <Reveal>
-          <span className="eyebrow">LESS WORRY, MORE POSSIBILITY</span>
-          <h2>
-            잊어버릴 걱정은 줄이고,
+
+      <section className="landing-hero" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <h1 id="hero-title">
+            해야 할 일과
             <br />
-            해낼 수 있는 일은 늘리고.
+            <span>수업의 흐름을</span> 한곳에서.
+          </h1>
+          <p className="hero-lead">
+            과제, 마감일, 제출과 피드백을 한 화면에서 정리하세요.
+            <br />
+            오늘 할 일을 고르는 데 쓰는 시간을 줄여 드립니다.
+          </p>
+          <div className="landing-cta">
+            <Link className="btn btn-primary" href="/register">
+              무료로 시작하기 <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+            <a className="btn btn-secondary" href="#how-it-works">
+              어떻게 쓰나요?
+            </a>
+          </div>
+          <p className="hero-proof">
+            <Check size={16} aria-hidden="true" /> 학생과 선생님이 같은 과제를
+            보고, 각자의 다음 일을 확인합니다.
+          </p>
+        </div>
+
+        <div className="hero-workspace" aria-label="오늘의 학교생활 예시">
+          <div className="workspace-topline">
+            <div>
+              <span className="workspace-label">나의 학교생활</span>
+              <strong>오늘 할 일</strong>
+            </div>
+            <span className="workspace-date">9월 17일 목요일</span>
+          </div>
+          <div className="workspace-summary">
+            <div>
+              <span>남은 과제</span>
+              <strong>3개</strong>
+            </div>
+            <div>
+              <span>이번 주 완료</span>
+              <strong>8개</strong>
+            </div>
+            <div className="workspace-summary-note">
+              <CalendarDays size={16} aria-hidden="true" />
+              마감이 가까운 순서
+            </div>
+          </div>
+          <div className="workspace-tasks">
+            {tasks.map((task) => (
+              <div className="workspace-task" key={task.title}>
+                <span className={`task-subject ${task.urgent ? "urgent" : ""}`}>
+                  {task.subject}
+                </span>
+                <div>
+                  <strong>{task.title}</strong>
+                  <span>{task.date} 마감</span>
+                </div>
+                <span className={`task-state ${task.urgent ? "urgent" : ""}`}>
+                  {task.urgent ? "먼저" : "진행 중"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="workspace-footline">
+            <span>
+              <ClipboardCheck size={16} aria-hidden="true" /> 오늘의 우선순위
+            </span>
+            <span>완료한 만큼 여유가 생겨요</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-bridge" aria-labelledby="bridge-title">
+        <div>
+          <h2 id="bridge-title">
+            기록이 흩어지지 않도록,
+            <br />
+            하나의 흐름으로 이어집니다.
+          </h2>
+        </div>
+        <p>
+          선생님이 올린 과제는 학생의 일정이 되고, 학생의 제출은 선생님의
+          피드백으로 이어집니다. 필요한 순간에 필요한 정보만 보세요.
+        </p>
+      </section>
+
+      <section
+        className="landing-flow"
+        id="how-it-works"
+        aria-labelledby="flow-title"
+      >
+        <div className="section-intro">
+          <h2 id="flow-title">한 번 정리하면, 다음 행동이 보입니다.</h2>
+        </div>
+        <div className="flow-list">
+          <article className="flow-step">
+            <div className="flow-icon">
+              <BookOpen size={22} aria-hidden="true" />
+            </div>
+            <h3>수업을 만들고</h3>
+            <p>
+              클래스 코드 하나로 학생을 초대하고, 과제를 한 번에 공유합니다.
+            </p>
+          </article>
+          <article className="flow-step">
+            <div className="flow-icon">
+              <CalendarDays size={22} aria-hidden="true" />
+            </div>
+            <h3>오늘 할 일을 고르고</h3>
+            <p>마감일과 우선순위를 보고 지금 시작할 과제를 빠르게 찾습니다.</p>
+          </article>
+          <article className="flow-step">
+            <div className="flow-icon">
+              <MessageCircle size={22} aria-hidden="true" />
+            </div>
+            <h3>막히면 질문하고</h3>
+            <p>
+              과제 맥락을 알고 있는 도우미에게 다음 한 걸음을 물어볼 수
+              있습니다.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-ai" aria-labelledby="ai-title">
+        <div className="ai-copy">
+          <h2 id="ai-title">
+            막막할 때는
+            <br />
+            다음 한 걸음만.
           </h2>
           <p>
-            여기저기 흩어진 학교생활,
-            <br className="mobile-break" /> 이제 한곳에서 정리하세요.
+            완성본을 대신 만드는 대신, 과제의 설명과 평가기준을 바탕으로 스스로
+            시작할 수 있는 순서를 함께 찾습니다.
           </p>
-        </Reveal>
-      </section>
-      <section className="story-section">
-        <Reveal className="story-grid">
-          <div className="story-copy">
-            <span className="story-number">01 — 과제 관리</span>
-            <h2>
-              지금 해야 할 일,
-              <br />
-              <span>바로 알 수 있게.</span>
-            </h2>
-            <p>
-              선생님이 등록한 과제가 내 대시보드에 쏙.
-              <br />
-              마감이 가까운 일부터 확인하고,
-              <br />
-              완료 버튼으로 하나씩 지워나가세요.
-            </p>
-            <div className="story-feature">
-              <ClipboardIcon /> 과제 · 수행평가 · 시험 · 준비물
-            </div>
-          </div>
-          <div className="product-preview">
-            <div className="preview-top">
-              <span className="brand-mark">A</span>
-              <span>나의 학교생활</span>
-              <i />
-              <span className="preview-avatar">나</span>
-            </div>
-            <div className="preview-content">
-              <span className="eyebrow">TODAY&apos;S PLAN</span>
-              <h3>오늘도, 차근차근 👋</h3>
-              <p>가장 중요한 일부터 시작해 볼까요?</p>
-              {[
-                {
-                  color: "blue",
-                  subject: "탐구",
-                  title: "주제 탐구 보고서",
-                  date: "D-3",
-                },
-                {
-                  color: "purple",
-                  subject: "영어",
-                  title: "나의 꿈 발표 준비하기",
-                  date: "D-5",
-                },
-                {
-                  color: "green",
-                  subject: "과학",
-                  title: "탐구 보고서 작성",
-                  date: "D-7",
-                },
-              ].map((a) => (
-                <div className="preview-task" key={a.title}>
-                  <span className={`subject-icon ${a.color}`}>
-                    <BookOpen size={20} />
-                  </span>
-                  <div>
-                    <small>{a.subject}</small>
-                    <strong>{a.title}</strong>
-                  </div>
-                  <span className="badge badge-blue">{a.date}</span>
-                </div>
-              ))}
-              <small className="preview-caption">서비스 화면 예시</small>
-            </div>
-          </div>
-        </Reveal>
-      </section>
-      <section className="story-section story-tint">
-        <Reveal className="story-grid reverse">
-          <div className="ai-preview">
-            <div className="ai-orb">
-              <Sparkles size={42} />
-            </div>
-            <div className="sample-question">
-              오늘 30분밖에 없는데 뭐부터 해야 해?
-            </div>
-            <div className="sample-answer">
-              <div>
-                <Sparkles size={16} /> AI 과제 도우미
-              </div>
-              <p>
-                탐구 과제를 준비하는 첫 30분,
-                <br />
-                이렇게 시작해 볼까요?
-              </p>
-              <ol>
-                <li>
-                  <span>10분</span> 관심 있는 탐구 주제 고르기
-                </li>
-                <li>
-                  <span>15분</span> 참고 자료와 필요한 항목 찾아보기
-                </li>
-                <li>
-                  <span>5분</span> 내일 할 일 세 줄로 정리하기
-                </li>
-              </ol>
-              <small>
-                AI 답변 예시 · 실제 답변은 과제와 질문에 따라 달라집니다.
-              </small>
-            </div>
-          </div>
-          <div className="story-copy">
-            <span className="story-number">02 — AI 학습 도우미</span>
-            <h2>
-              내 과제를 아는 AI.
-              <br />
-              <span>시작이 쉬워져요.</span>
-            </h2>
-            <p>
-              제목, 설명, 마감일, 평가기준까지.
-              <br />
-              다시 설명할 필요 없이 바로 물어보세요.
-              <br />
-              스스로 해낼 수 있도록 옆에서 도울게요.
-            </p>
-            <div className="story-feature">
-              <Sparkles size={18} /> 과제마다 이어지는 나만의 대화
-            </div>
-          </div>
-        </Reveal>
-      </section>
-      <section className="story-section" id="together">
-        <Reveal className="story-grid">
-          <div className="story-copy">
-            <span className="story-number">03 — 연결된 클래스</span>
-            <h2>
-              선생님은 한 번 등록.
-              <br />
-              <span>학생들은 바로 확인.</span>
-            </h2>
-            <p>
-              복잡한 초대 대신, 클래스 코드 하나.
-              <br />
-              과제 등록부터 학생별 완료 현황까지
-              <br />
-              하나의 공간에서 함께할 수 있어요.
-            </p>
-            <Link className="text-link" href="/register">
-              선생님 계정으로 시작하기 <ArrowUpRight size={16} />
-            </Link>
-          </div>
-          <div className="class-preview">
-            <div className="class-preview-icon">
-              <GraduationCap size={48} />
-            </div>
-            <h3>2학년 탐구 수업</h3>
-            <p>우리 반의 새로운 학습 공간</p>
-            <div className="invite-preview">
-              <small>클래스 초대 코드 예시</small>
-              <strong>BSS-7K29FA</strong>
-            </div>
-            <div className="connected-people">
-              <span>김</span>
-              <span>이</span>
-              <span>박</span>
-              <span>최</span>
-              <i>함께 배우고 있어요</i>
-            </div>
-          </div>
-        </Reveal>
-      </section>
-      <section className="landing-benefits">
-        <Reveal className="benefits-heading">
-          <span className="eyebrow">A LITTLE MORE POSSIBILITY</span>
-          <h2>
-            작은 시작이 만드는
-            <br />더 큰 가능성.
-          </h2>
-        </Reveal>
-        <Reveal className="benefit-grid">
-          {[
-            {
-              icon: CalendarDays,
-              title: "한눈에 보는 일정",
-              text: "수업 일정과 개인 일정을 캘린더에 함께 담아요.",
-            },
-            {
-              icon: Check,
-              title: "쌓여가는 작은 성취",
-              text: "과제를 완료하고 나만의 진행 상황을 확인해요.",
-            },
-            {
-              icon: Sparkles,
-              title: "부담 없이 시작",
-              text: "기본 관리 기능과 하루 10회의 AI 질문을 무료로.",
-            },
-          ].map((b) => (
-            <div key={b.title}>
-              <b.icon size={26} />
-              <h3>{b.title}</h3>
-              <p>{b.text}</p>
-            </div>
-          ))}
-        </Reveal>
-      </section>
-      <section className="landing-final">
-        <Reveal>
-          <span className="eyebrow">YOUR SCHOOL, YOUR PACE</span>
-          <h2>
-            학교생활에,
-            <br />
-            조금 더 여유를.
-          </h2>
-          <Link className="btn btn-primary" href="/register">
-            나의 학교생활 시작하기 <ArrowUpRight size={18} />
+          <Link className="text-link text-link-light" href="/register">
+            나의 공간 만들기 <ArrowUpRight size={16} aria-hidden="true" />
           </Link>
-          <p>카드 등록 없이 무료로 시작할 수 있어요.</p>
-        </Reveal>
+        </div>
+        <div className="ai-note" aria-label="AI 과제 도우미 답변 예시">
+          <div className="ai-note-head">
+            <span>과제 도우미</span>
+            <span>답변 예시</span>
+          </div>
+          <p className="ai-question">오늘 30분만 쓸 수 있어. 어디부터 할까?</p>
+          <div className="ai-answer">
+            <strong>첫 단계부터 작게 시작해 볼까요?</strong>
+            <ol>
+              <li>
+                <span>10분</span> 관심 있는 탐구 주제 고르기
+              </li>
+              <li>
+                <span>15분</span> 참고 자료와 필요한 항목 찾아보기
+              </li>
+              <li>
+                <span>5분</span> 내일 할 일 세 줄로 정리하기
+              </li>
+            </ol>
+            <small>실제 답변은 과제와 질문에 따라 달라집니다.</small>
+          </div>
+        </div>
       </section>
+
+      <section
+        className="landing-together"
+        id="for-teachers"
+        aria-labelledby="together-title"
+      >
+        <div className="section-intro">
+          <h2 id="together-title">
+            수업은 한 번 등록하고,
+            <br />
+            진행은 함께 확인합니다.
+          </h2>
+          <p>
+            클래스 코드로 초대하고, 과제 등록부터 제출물 검토까지 한 공간에서
+            이어가세요.
+          </p>
+          <Link className="text-link" href="/register">
+            선생님 계정으로 시작하기{" "}
+            <ArrowUpRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
+        <div className="class-board" aria-label="클래스 화면 예시">
+          <div className="class-board-head">
+            <div>
+              <span>탐구 수업</span>
+              <strong>2학년 탐구 수업</strong>
+            </div>
+            <Users size={22} aria-hidden="true" />
+          </div>
+          <div className="class-code-row">
+            <span>학생 초대 코드</span>
+            <code>BSS-7K29FA</code>
+          </div>
+          <div className="class-member-row">
+            <span className="member-dots" aria-hidden="true">
+              <i>김</i>
+              <i>이</i>
+              <i>박</i>
+              <i>최</i>
+            </span>
+            <span>4명이 함께 배우고 있어요</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-final" aria-labelledby="final-title">
+        <h2 id="final-title">
+          학교생활을 정리하는
+          <br />첫 화면을 만드세요.
+        </h2>
+        <Link className="btn btn-primary" href="/register">
+          무료로 시작하기 <ArrowUpRight size={16} aria-hidden="true" />
+        </Link>
+        <p>카드 등록 없이 시작할 수 있습니다.</p>
+      </section>
+
       <footer className="landing-footer">
         <Logo />
-        <p>AI School OS · 학생과 선생님을 위한 학습 공간</p>
-        <span>고등학교 모의창업 MVP 프로젝트</span>
-        <div className="footer-wordmark" aria-hidden="true">
-          Your School. Your OS.
-        </div>
+        <p>학생과 선생님을 위한 학교생활 운영 도구</p>
+        <span>AI School OS · MVP</span>
       </footer>
     </main>
   );
-}
-function ClipboardIcon() {
-  return <BookOpen size={18} />;
 }

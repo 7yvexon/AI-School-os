@@ -14,6 +14,13 @@ type ReviewRecord = {
   reviewerName: string;
 };
 
+const formatSeoul = (value: string) =>
+  new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(value));
+
 export function SubmissionReviewForm({
   submissionId,
   studentName,
@@ -62,9 +69,7 @@ export function SubmissionReviewForm({
           </span>
         </div>
         <p>{studentMeta || "학년·반 정보 없음"}</p>
-        <p className="form-hint">
-          제출 {new Date(submittedAt).toLocaleString("ko-KR")}
-        </p>
+        <p className="form-hint">제출 {formatSeoul(submittedAt)}</p>
         <div
           className="prose-like"
           style={{ whiteSpace: "pre-wrap", marginTop: 12 }}
@@ -82,8 +87,7 @@ export function SubmissionReviewForm({
                       {review.status === "REVIEWED" ? "검토 완료" : "수정 요청"}
                     </strong>
                     <p className="form-hint">
-                      {review.reviewerName} ·{" "}
-                      {new Date(review.createdAt).toLocaleString("ko-KR")}
+                      {review.reviewerName} · {formatSeoul(review.createdAt)}
                     </p>
                     {review.feedback && (
                       <p className="prose-like">{review.feedback}</p>

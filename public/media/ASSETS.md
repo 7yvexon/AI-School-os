@@ -1,5 +1,9 @@
 # Product film assets
 
+The default landing page does not load these files. They are retained for the optional
+offline film renderer at `/film-render` and for provenance of earlier visual regression
+fixtures.
+
 - `school-film.webm`: 20-second, 24 fps product demonstration rendered with Three.js and encoded offline with WebCodecs. The screen uses illustrative task data, not a recording of a user's account.
 - `school-film-poster.jpg`: First frame of the film.
 - `study-background.png`: Generated with the built-in `image_gen` tool, then copied into this project. It is an original photographic-style backdrop.

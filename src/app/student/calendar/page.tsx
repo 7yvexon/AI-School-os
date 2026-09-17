@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { dayKey } from "@/lib/domain";
@@ -58,7 +59,7 @@ export default async function Page({
             aria-label="이전 달"
             href={`?month=${prevMonth}`}
           >
-            ←
+            <ArrowLeft size={16} aria-hidden="true" />
           </Link>
           <Link className="btn btn-secondary" href="/student/calendar">
             이번 달
@@ -68,58 +69,81 @@ export default async function Page({
             aria-label="다음 달"
             href={`?month=${nextMonth}`}
           >
-            →
+            <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </div>
       </div>
-      <div className="calendar">
-        {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
-          <div className="calendar-weekday" key={d}>
-            {d}
-          </div>
-        ))}
-        {Array.from({ length: cells }, (_, i) => {
-          const day = i - start + 1;
-          const valid = day > 0 && day <= count;
-          const key = `${selected}-${String(day).padStart(2, "0")}`;
-          return (
-            <div
-              className={`calendar-day ${valid ? "" : "empty-day"} ${key === dayKey() ? "today" : ""}`}
-              key={i}
-            >
-              {valid && (
-                <>
-                  <div className="calendar-day-number">{day}</div>
-                  {assignments
-                    .filter((a) => dayKey(a.dueAt) === key)
-                    .map((a) => (
-                      <Link
-                        className="calendar-event"
-                        style={{ display: "block" }}
-                        title={a.title}
-                        href={`/student/assignments/${a.id}`}
-                        key={a.id}
-                      >
-                        {a.title}
-                      </Link>
-                    ))}
-                  {events
-                    .filter((e) => dayKey(e.dueAt) === key)
-                    .map((e) => (
-                      <div
-                        className="calendar-event personal"
-                        title={e.title}
-                        key={e.id}
-                      >
-                        {e.title}
-                      </div>
-                    ))}
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <table className="calendar">
+        <caption className="sr-only">
+          {year}년 {m}월 수업 및 개인 일정
+        </caption>
+        <thead>
+          <tr>
+            {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
+              <th className="calendar-weekday" scope="col" key={d}>
+                {d}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: cells / 7 }, (_, week) => (
+            <tr key={week}>
+              {Array.from({ length: 7 }, (_, offset) => {
+                const i = week * 7 + offset;
+                const day = i - start + 1;
+                const valid = day > 0 && day <= count;
+                const key = `${selected}-${String(day).padStart(2, "0")}`;
+                const today = key === dayKey();
+                return (
+                  <td
+                    className={`calendar-day ${valid ? "" : "empty-day"} ${today ? "today" : ""}`}
+                    key={i}
+                    aria-label={
+                      valid
+                        ? `${year}년 ${m}월 ${day}일${today ? " 오늘" : ""}`
+                        : undefined
+                    }
+                    aria-hidden={!valid}
+                  >
+                    {valid && (
+                      <>
+                        <div className="calendar-day-number" aria-hidden="true">
+                          {day}
+                        </div>
+                        {assignments
+                          .filter((a) => dayKey(a.dueAt) === key)
+                          .map((a) => (
+                            <Link
+                              className="calendar-event"
+                              title={a.title}
+                              aria-label={`${a.title}, ${year}년 ${m}월 ${day}일 마감`}
+                              href={`/student/assignments/${a.id}`}
+                              key={a.id}
+                            >
+                              {a.title}
+                            </Link>
+                          ))}
+                        {events
+                          .filter((e) => dayKey(e.dueAt) === key)
+                          .map((e) => (
+                            <span
+                              className="calendar-event personal"
+                              title={e.title}
+                              key={e.id}
+                            >
+                              {e.title}
+                            </span>
+                          ))}
+                      </>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <div className="section-heading">
         <h2>개인 일정 추가</h2>
       </div>
