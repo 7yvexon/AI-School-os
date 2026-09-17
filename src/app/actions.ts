@@ -5,12 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import {
-  createSession,
-  logoutSession,
-  requireUser,
-  validTeacherInvite,
-} from "@/lib/auth";
+import { createSession, logoutSession, requireUser } from "@/lib/auth";
 import { ownedClass, accessibleAssignment } from "@/lib/access";
 import { rateLimit, RateLimitError } from "@/lib/rate-limit";
 import { hashIdentifier, requestIp } from "@/lib/request";
@@ -108,16 +103,6 @@ export async function authenticate(
       const profile = z
         .object({ name: text(40), role: z.enum(["STUDENT", "TEACHER"]) })
         .parse(Object.fromEntries(form));
-      if (profile.role === "TEACHER") {
-        const invite = z
-          .string()
-          .trim()
-          .min(1, "교사 초대 코드를 입력해 주세요.")
-          .max(200)
-          .parse(form.get("teacherInviteCode"));
-        if (!validTeacherInvite(invite))
-          throw new ActionError("교사 가입은 유효한 초대 코드가 필요합니다.");
-      }
       user = await db.user.create({
         data: {
           ...profile,

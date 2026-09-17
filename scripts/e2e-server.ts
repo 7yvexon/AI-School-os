@@ -102,8 +102,6 @@ async function main() {
     APP_URL: "http://localhost:3100",
     TRUST_PROXY: "false",
     SERVER_ACTION_ALLOWED_ORIGINS: "",
-    TEACHER_INVITE_CODE:
-      process.env.E2E_TEACHER_INVITE_CODE ?? randomBytes(18).toString("hex"),
     AI_API_KEY: randomBytes(24).toString("hex"),
     AI_BASE_URL: "http://127.0.0.1:4318/v1",
     AI_MODEL: "test-fixture",

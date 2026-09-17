@@ -75,7 +75,7 @@ Cloudflare One의 Tunnels & Mesh에서 사용할 터널을 열고 Published appl
 
 기본 운영값은 `<config-root>/app.env`에 생성됩니다. `APP_URL`, `TRUST_PROXY`, `SERVER_ACTION_ALLOWED_ORIGINS`는 공개 호스트에 맞춰 설정하고, `AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 비활성화된 상태로 핵심 학습 기능을 사용할 수 있습니다. 실제 AI를 연결할 때는 API 키를 환경 파일에만 넣고 `<service-name>` 서비스를 재시작합니다.
 
-교사 가입을 위해 최초 설치 시 무작위 `TEACHER_INVITE_CODE`가 생성됩니다. root만 환경 파일을 읽을 수 있도록 보호되어 있으므로, 초대 코드를 전달한 뒤 첫 교사를 가입시키고 필요하면 환경 파일의 코드를 교체해 서비스를 재시작합니다.
+학생과 선생님 모두 회원가입 화면에서 역할을 선택해 가입합니다. 현재 학교 이메일 인증이나 관리자 승인 절차는 없으므로 실제 학교 운영 전에는 공개 교사 가입을 보완하는 인증 흐름을 추가해야 합니다.
 
 ## 점검 명령
 

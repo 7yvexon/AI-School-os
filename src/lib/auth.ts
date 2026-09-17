@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { db } from "./db";
 import { redirect } from "next/navigation";
 import { getRuntimeConfig } from "./env";
@@ -60,17 +60,6 @@ export async function requireUser(role?: "STUDENT" | "TEACHER") {
   return user;
 }
 
-export function teacherSignupEnabled() {
-  return Boolean(process.env.TEACHER_INVITE_CODE?.trim());
-}
-
-export function validTeacherInvite(code: string) {
-  const expected = process.env.TEACHER_INVITE_CODE;
-  if (!expected) return false;
-  const provided = Buffer.from(code);
-  const target = Buffer.from(expected.trim());
-  return provided.length === target.length && timingSafeEqual(provided, target);
-}
 export async function logoutSession() {
   const token = (await cookies()).get(cookieName)?.value;
   if (token) await db.session.deleteMany({ where: { id: hash(token) } });

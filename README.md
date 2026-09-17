@@ -152,21 +152,18 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 `.env.example`을 복사해 `.env`를 만들고 환경에 맞는 값을 입력합니다.
 
-교사 회원가입을 사용하려면 `TEACHER_INVITE_CODE`에 서버 전용 코드를 입력한 뒤 개발 서버를 재시작합니다. 회원가입의 교사 초대코드와 학생이 클래스에 참여할 때 입력하는 클래스 코드는 서로 다른 값입니다. 클래스 코드는 클래스 상세 화면에서 표시되며 `BSS-` 뒤에 대문자 16진수 10자리가 붙는 형식입니다.
-
 배포 전에 `NODE_ENV=production`으로 실행 환경을 선택한 뒤 `npm run ops:check-env`를 실행하면 데이터베이스 URL, 인증 비밀값, 외부 URL, 프록시 설정을 값 자체를 출력하지 않고 확인할 수 있습니다. 이 명령은 서버를 시작하지 않으므로 배포 파이프라인의 사전 점검 단계에서 사용할 수 있습니다.
 
-| 변수                            | 필수         | 설명                                                                                                  |
-| ------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                  | 예           | PostgreSQL 연결 문자열. `.env.example`의 자리표시자를 실제 개발 DB 값으로 교체합니다.                 |
-| `AUTH_SECRET`                   | 예           | 최소 32자 무작위 비밀값. 변경하면 기존 세션이 무효화됩니다.                                           |
-| `APP_URL`                       | 예           | 외부 접속 원본 URL. 로컬 기본값은 `http://localhost:3000`이며 AI API Origin 검사에 사용합니다.        |
-| `TRUST_PROXY`                   | 배포 시      | `true`일 때 신뢰하는 프록시의 `X-Forwarded-For`·`X-Real-IP`를 IP 제한에 사용합니다.                   |
-| `SERVER_ACTION_ALLOWED_ORIGINS` | 배포 시      | 프록시가 사용하는 Server Action 허용 호스트를 쉼표로 구분해 입력합니다.                               |
-| `TEACHER_INVITE_CODE`           | 교사 가입 시 | 교사 계정 가입을 허용할 때만 설정하는 서버 전용 초대 코드입니다. 비워 두면 공개 교사 가입을 막습니다. |
-| `AI_API_KEY`                    | AI 사용 시   | OpenAI 호환 제공자의 API 키. 서버에서만 읽습니다.                                                     |
-| `AI_BASE_URL`                   | AI 사용 시   | `/chat/completions` 앞까지의 URL. 운영에서는 HTTPS를 사용합니다. 예: `https://api.openai.com/v1`      |
-| `AI_MODEL`                      | AI 사용 시   | 제공자가 지원하는 모델 ID                                                                             |
+| 변수                            | 필수       | 설명                                                                                             |
+| ------------------------------- | ---------- | ------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                  | 예         | PostgreSQL 연결 문자열. `.env.example`의 자리표시자를 실제 개발 DB 값으로 교체합니다.            |
+| `AUTH_SECRET`                   | 예         | 최소 32자 무작위 비밀값. 변경하면 기존 세션이 무효화됩니다.                                      |
+| `APP_URL`                       | 예         | 외부 접속 원본 URL. 로컬 기본값은 `http://localhost:3000`이며 AI API Origin 검사에 사용합니다.   |
+| `TRUST_PROXY`                   | 배포 시    | `true`일 때 신뢰하는 프록시의 `X-Forwarded-For`·`X-Real-IP`를 IP 제한에 사용합니다.              |
+| `SERVER_ACTION_ALLOWED_ORIGINS` | 배포 시    | 프록시가 사용하는 Server Action 허용 호스트를 쉼표로 구분해 입력합니다.                          |
+| `AI_API_KEY`                    | AI 사용 시 | OpenAI 호환 제공자의 API 키. 서버에서만 읽습니다.                                                |
+| `AI_BASE_URL`                   | AI 사용 시 | `/chat/completions` 앞까지의 URL. 운영에서는 HTTPS를 사용합니다. 예: `https://api.openai.com/v1` |
+| `AI_MODEL`                      | AI 사용 시 | 제공자가 지원하는 모델 ID                                                                        |
 
 AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 뒤 학생 과제 상세에서 AI 사용에 동의하고 질문합니다. 서버는 `POST {AI_BASE_URL}/chat/completions`로 `{ model, messages, max_tokens: 1600 }`을 보내는 비스트리밍 어댑터를 사용합니다. 다른 응답 형식은 [AI 어댑터](src/lib/ai.ts)에서 조정합니다.
 
@@ -236,7 +233,7 @@ npm run build
 npm run test:e2e
 ```
 
-E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres-v2`), `4318` 포트의 결정적 로컬 AI 제공자, `3100` 포트의 빌드된 Next.js 서버를 사용합니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다. 교사 가입 테스트는 E2E 전용 `TEACHER_INVITE_CODE`를 사용합니다.
+E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres-v2`), `4318` 포트의 결정적 로컬 AI 제공자, `3100` 포트의 빌드된 Next.js 서버를 사용합니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다. E2E에서는 학생·선생님 역할을 모두 초대코드 없이 가입합니다.
 
 ## 프로젝트 구조
 
@@ -256,7 +253,7 @@ tests/                   도메인 테스트·Playwright E2E
 ## 보안과 운영 범위
 
 - bcrypt(cost 12) 비밀번호 해시, UTF-8 72바이트 제한, 256비트 무작위 세션 토큰과 7일 만료, HttpOnly·SameSite=Lax 쿠키를 사용합니다. 운영 모드에서는 Secure 쿠키와 HTTPS가 필요합니다.
-- 모든 서버 작업에서 역할·클래스 소속·소유권을 검사하고, Server Actions와 AI API에서 Origin을 확인합니다. 교사 가입은 `TEACHER_INVITE_CODE`가 설정된 경우에만 허용합니다.
+- 모든 서버 작업에서 역할·클래스 소속·소유권을 검사하고, Server Actions와 AI API에서 Origin을 확인합니다. 학생과 선생님은 회원가입 시 역할을 선택할 수 있으며, 별도의 학교 이메일 인증이나 관리자 승인 절차는 아직 제공하지 않습니다.
 - Zod 서버 검증, Prisma 매개변수 쿼리, React 텍스트 렌더링을 사용합니다. 사용자 HTML을 실행하지 않습니다.
 - 첨부파일은 DB에 저장하고 파일당 5MiB·클래스별 50개·50MiB를 제한하며 `application/octet-stream`·`nosniff`로 다운로드합니다. 악성코드 검사는 아직 제공하지 않습니다.
 - 인증·쓰기·AI·클래스 참여 요청에 IP·계정·실패한 이메일·IP 조합 기반 제한을 적용합니다. 운영에서는 신뢰 프록시 설정, 모니터링과 백업을 함께 구성하세요.
@@ -275,7 +272,7 @@ tests/                   도메인 테스트·Playwright E2E
 - [x] 과제별 AI 대화 저장·복원과 플랜별 사용량 제한
 - [x] 학생 제출·선생님 검토·피드백 흐름
 - [x] 첨부파일 권한 검사와 반응형 랜딩 경험
-- [x] 교사 초대 코드·클래스 코드 재발급·학생 제외
+- [x] 학생·선생님 역할 가입·클래스 코드 재발급·학생 제외
 - [x] 과제 보관·복원과 제출·검토 이력 보존
 - [x] AI 동의·개인정보 최소화·대화 기록 삭제
 - [ ] PRO 자동 공부계획과 고급 일정 분석

@@ -77,11 +77,9 @@ install -d -o root -g root -m 0750 "$CONFIG_ROOT"
 
 db_password=""
 auth_secret=""
-teacher_invite_code=""
 if [ ! -r "$ENV_FILE" ]; then
   db_password=$(openssl rand -hex 32)
   auth_secret=$(openssl rand -hex 32)
-  teacher_invite_code="AI-SCHOOL-$(openssl rand -hex 12 | tr '[:lower:]' '[:upper:]')"
   if runuser -u postgres -- psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname = '$DB_ROLE'" | grep -qx 1; then
     runuser -u postgres -- psql -v ON_ERROR_STOP=1 -v db_role="$DB_ROLE" -v db_password="$db_password" <<'SQL'
 SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'db_role', :'db_password')\gexec
@@ -104,7 +102,6 @@ AUTH_SECRET=${auth_secret}
 APP_URL=${APP_URL}
 TRUST_PROXY=true
 SERVER_ACTION_ALLOWED_ORIGINS=${PUBLIC_HOSTNAME}
-TEACHER_INVITE_CODE=${teacher_invite_code}
 AI_API_KEY=
 AI_BASE_URL=https://api.openai.com/v1
 AI_MODEL=
@@ -134,4 +131,3 @@ systemctl daemon-reload
 systemctl enable "$SERVICE_NAME.service"
 
 echo "서버 기본 설정 완료: $APP_ROOT · $ENV_FILE · $SERVICE_NAME.service"
-echo "교사 초대 코드는 환경 파일에 저장되며, 첫 교사 가입 후 회전하세요."

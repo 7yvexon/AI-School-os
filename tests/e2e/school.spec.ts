@@ -3,8 +3,6 @@ import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import { dayKey } from "../../src/lib/domain";
 const db = new PrismaClient();
-const e2eTeacherInviteCode =
-  process.env.E2E_TEACHER_INVITE_CODE ?? randomBytes(18).toString("hex");
 const e2eTestPassword =
   process.env.E2E_TEST_PASSWORD ?? randomBytes(24).toString("base64url");
 test.afterAll(() => db.$disconnect());
@@ -17,10 +15,6 @@ async function register(
   await page.goto("/register");
   await page.getByLabel("이름", { exact: true }).fill(name);
   await page.getByLabel(role, { exact: true }).check({ force: true });
-  if (role === "선생님")
-    await page
-      .getByLabel("교사 초대 코드", { exact: true })
-      .fill(`  ${e2eTeacherInviteCode}  `);
   await page.getByLabel("이메일").fill(email);
   await page.getByLabel("비밀번호").fill(e2eTestPassword);
   await page.getByRole("button", { name: "회원가입" }).click();
@@ -398,21 +392,6 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await studentContext.close();
   await teacher2Context.close();
 });
-test("teacher invite code rejects an incorrect value", async ({ page }) => {
-  await db.rateLimit.deleteMany();
-  const stamp = Date.now();
-  await page.goto("/register");
-  await page.getByLabel("이름", { exact: true }).fill("초대코드 오류 테스트");
-  await page.getByLabel("선생님", { exact: true }).check({ force: true });
-  await page
-    .getByLabel("교사 초대 코드", { exact: true })
-    .fill(`${e2eTeacherInviteCode}-wrong`);
-  await page.getByLabel("이메일").fill(`teacher-invalid-${stamp}@example.com`);
-  await page.getByLabel("비밀번호").fill(e2eTestPassword);
-  await page.getByRole("button", { name: "회원가입" }).click();
-  await expect(page.locator(".alert-error")).toContainText("유효한 초대 코드");
-  await expect(page).toHaveURL(/register/);
-});
 test("landing, reduced motion and mobile navigation have usable layouts", async ({
   page,
   browser,
@@ -426,19 +405,11 @@ test("landing, reduced motion and mobile navigation have usable layouts", async 
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: "해야 할 일과 수업의 흐름을 한곳에서.",
-      exact: true,
+      name: /학교생활의.*다음 장면으로/,
     }),
   ).toBeVisible();
-  await expect(page.locator(".hero-workspace")).toBeVisible();
-  await page.locator("#how-it-works").scrollIntoViewIfNeeded();
-  await expect(
-    page.getByRole("heading", {
-      name: "한 번 정리하면, 다음 행동이 보입니다.",
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(page.locator(".flow-step")).toHaveCount(3);
+  await expect(page.locator(".deep-prompt")).toBeVisible();
+  await expect(page.locator(".deep-hero__signals span")).toHaveCount(3);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   await page.screenshot({
     path: "test-results/landing-desktop.png",
@@ -453,11 +424,10 @@ test("landing, reduced motion and mobile navigation have usable layouts", async 
   await mobile.goto("/");
   await expect(
     mobile.getByRole("heading", {
-      name: "해야 할 일과 수업의 흐름을 한곳에서.",
-      exact: true,
+      name: /학교생활의.*다음 장면으로/,
     }),
   ).toBeVisible();
-  await expect(mobile.locator(".hero-workspace")).toBeVisible();
+  await expect(mobile.locator(".deep-prompt")).toBeVisible();
   expect(
     await mobile.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

@@ -27,7 +27,6 @@ if (!e2eDatabasePassword) {
   }
 }
 process.env.E2E_DATABASE_PASSWORD = e2eDatabasePassword;
-process.env.E2E_TEACHER_INVITE_CODE ||= randomBytes(18).toString("hex");
 process.env.E2E_TEST_PASSWORD ||= randomBytes(24).toString("base64url");
 process.env.DATABASE_URL = `postgresql://school:${e2eDatabasePassword}@localhost:${e2eDatabasePort}/school_e2e?schema=public`;
 export default defineConfig({
