@@ -26,23 +26,31 @@ const due = z.iso.date().transform((v) => new Date(`${v}T23:59:59+09:00`));
 const reviewStatus = z.enum(["RETURNED", "REVIEWED"]);
 export type ActionState = { error?: string; success?: string };
 class ActionError extends Error {}
-function message(e: unknown) {
-  return e instanceof z.ZodError
-    ? e.issues[0].message
-    : e instanceof ActionError
-      ? e.message
-      : e instanceof RateLimitError ||
-          (e instanceof Error && /요청이 너무/.test(e.message))
+function isUniqueConstraintError(e: unknown) {
+  return (
+    typeof e === "object" && e !== null && "code" in e && e.code === "P2002"
+  );
+}
+function message(e: unknown, duplicateEmail = false) {
+  return duplicateEmail && isUniqueConstraintError(e)
+    ? "이미 가입된 이메일입니다. 로그인해 주세요."
+    : e instanceof z.ZodError
+      ? e.issues[0].message
+      : e instanceof ActionError
         ? e.message
-        : "요청을 처리하지 못했습니다. 입력과 접근 권한을 확인해 주세요.";
+        : e instanceof RateLimitError ||
+            (e instanceof Error && /요청이 너무/.test(e.message))
+          ? e.message
+          : "요청을 처리하지 못했습니다. 입력과 접근 권한을 확인해 주세요.";
 }
 export async function authenticate(
   _: ActionState,
   form: FormData,
 ): Promise<ActionState> {
   let target = "";
+  let mode: "login" | "register" | undefined;
   try {
-    const mode = z.enum(["login", "register"]).parse(form.get("mode"));
+    mode = z.enum(["login", "register"]).parse(form.get("mode"));
     const data = z
       .object({
         email: z
@@ -107,7 +115,7 @@ export async function authenticate(
     await createSession(user.id);
     target = `/${user.role.toLowerCase()}/dashboard`;
   } catch (e) {
-    return { error: message(e) };
+    return { error: message(e, mode === "register") };
   }
   redirect(target);
 }

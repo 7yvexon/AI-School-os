@@ -385,6 +385,14 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await expect
     .poll(() => db.aIConversation.count({ where: { userId: learner.id } }))
     .toBe(0);
+  await teacher.goto("/register");
+  await teacher.getByLabel("이름", { exact: true }).fill("중복 가입 시도");
+  await teacher.getByLabel("이메일").fill(`teacher-${stamp}@example.com`);
+  await teacher.getByLabel("비밀번호").fill(e2eTestPassword);
+  await teacher.getByRole("button", { name: "회원가입" }).click();
+  await expect(teacher.locator(".alert-error")).toContainText(
+    "이미 가입된 이메일입니다",
+  );
   await outsiderContext.close();
   await teacherContext.close();
   await studentContext.close();
