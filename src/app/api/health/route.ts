@@ -32,6 +32,7 @@ export async function GET() {
 
   try {
     await db.$queryRaw`SELECT 1`;
+    await db.$queryRaw`SELECT "removedAt" FROM "ClassMember" LIMIT 0`;
   } catch {
     return notReady("database");
   }

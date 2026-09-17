@@ -16,7 +16,10 @@ export function JoinClassForm() {
           name="code"
           required
           maxLength={20}
-          placeholder="BSS-7K29FA"
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          placeholder="BSS-42FCED1F04"
           style={{ textTransform: "uppercase", letterSpacing: ".08em" }}
         />
       </div>

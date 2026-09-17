@@ -247,7 +247,7 @@ export default function Home() {
           </div>
           <div className="class-code-row">
             <span>학생 초대 코드</span>
-            <code>BSS-7K29FA</code>
+            <code>BSS-7FBB881CA2</code>
           </div>
           <div className="class-member-row">
             <span className="member-dots" aria-hidden="true">

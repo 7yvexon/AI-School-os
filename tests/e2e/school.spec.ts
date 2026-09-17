@@ -20,7 +20,7 @@ async function register(
   if (role === "선생님")
     await page
       .getByLabel("교사 초대 코드", { exact: true })
-      .fill(e2eTeacherInviteCode);
+      .fill(`  ${e2eTeacherInviteCode}  `);
   await page.getByLabel("이메일").fill(email);
   await page.getByLabel("비밀번호").fill(e2eTestPassword);
   await page.getByRole("button", { name: "회원가입" }).click();
@@ -78,7 +78,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     "테스트 학생",
   );
   await student.goto("/student/classes");
-  await student.getByLabel("클래스 코드").fill(code);
+  await student.getByLabel("클래스 코드").fill(code.toLowerCase());
   await student
     .getByRole("button", { name: "클래스 참여", exact: true })
     .click();
@@ -397,6 +397,21 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await teacherContext.close();
   await studentContext.close();
   await teacher2Context.close();
+});
+test("teacher invite code rejects an incorrect value", async ({ page }) => {
+  await db.rateLimit.deleteMany();
+  const stamp = Date.now();
+  await page.goto("/register");
+  await page.getByLabel("이름", { exact: true }).fill("초대코드 오류 테스트");
+  await page.getByLabel("선생님", { exact: true }).check({ force: true });
+  await page
+    .getByLabel("교사 초대 코드", { exact: true })
+    .fill(`${e2eTeacherInviteCode}-wrong`);
+  await page.getByLabel("이메일").fill(`teacher-invalid-${stamp}@example.com`);
+  await page.getByLabel("비밀번호").fill(e2eTestPassword);
+  await page.getByRole("button", { name: "회원가입" }).click();
+  await expect(page.locator(".alert-error")).toContainText("유효한 초대 코드");
+  await expect(page).toHaveURL(/register/);
 });
 test("landing, reduced motion and mobile navigation have usable layouts", async ({
   page,

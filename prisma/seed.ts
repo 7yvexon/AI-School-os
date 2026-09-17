@@ -45,16 +45,29 @@ async function seed() {
       classroom: "3",
     },
   });
-  const cls = await db.class.upsert({
-    where: { code: "BSS-7K29FA" },
-    update: { name: "2학년 탐구 수업", subject: "탐구", teacherId: teacher.id },
-    create: {
-      code: "BSS-7K29FA",
-      name: "2학년 탐구 수업",
-      subject: "탐구",
-      teacherId: teacher.id,
-    },
-  });
+  const sampleClassCode = "BSS-7FBB881CA2";
+  const legacySampleClassCode = "BSS-7K29FA";
+  const existingClass =
+    (await db.class.findUnique({ where: { code: sampleClassCode } })) ??
+    (await db.class.findUnique({ where: { code: legacySampleClassCode } }));
+  const cls = existingClass
+    ? await db.class.update({
+        where: { id: existingClass.id },
+        data: {
+          code: sampleClassCode,
+          name: "2학년 탐구 수업",
+          subject: "탐구",
+          teacherId: teacher.id,
+        },
+      })
+    : await db.class.create({
+        data: {
+          code: sampleClassCode,
+          name: "2학년 탐구 수업",
+          subject: "탐구",
+          teacherId: teacher.id,
+        },
+      });
   await db.classMember.upsert({
     where: { userId_classId: { userId: student.id, classId: cls.id } },
     update: {},

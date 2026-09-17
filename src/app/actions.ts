@@ -31,6 +31,38 @@ function isUniqueConstraintError(e: unknown) {
     typeof e === "object" && e !== null && "code" in e && e.code === "P2002"
   );
 }
+async function createClassWithUniqueCode(data: {
+  name: string;
+  subject: string;
+  teacherId: string;
+}) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await db.class.create({
+        data: {
+          ...data,
+          code: createClassCode(),
+        },
+      });
+    } catch (e) {
+      if (!isUniqueConstraintError(e)) throw e;
+    }
+  }
+  throw new ActionError("초대 코드를 발급하지 못했습니다.");
+}
+async function rotateClassCode(classId: string) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await db.class.update({
+        where: { id: classId },
+        data: { code: createClassCode() },
+      });
+    } catch (e) {
+      if (!isUniqueConstraintError(e)) throw e;
+    }
+  }
+  throw new ActionError("초대 코드를 발급하지 못했습니다.");
+}
 function message(e: unknown, duplicateEmail = false) {
   return duplicateEmail && isUniqueConstraintError(e)
     ? "이미 가입된 이메일입니다. 로그인해 주세요."
@@ -169,26 +201,16 @@ export async function mutate(
     } else if (op === "class") {
       if (user.role !== "TEACHER") throw Error();
       const data = z.object({ name: text(80), subject: text(40) }).parse(raw);
-      const cls = await db.class.create({
-        data: {
-          ...data,
-          teacherId: user.id,
-          code: createClassCode(),
-        },
+      const cls = await createClassWithUniqueCode({
+        ...data,
+        teacherId: user.id,
       });
       target = `/teacher/classes/${cls.id}`;
     } else if (op === "class-code-rotate") {
       if (user.role !== "TEACHER") throw Error();
       const classId = text(50).parse(form.get("classId"));
       if (!(await ownedClass(classId, user.id))) throw Error();
-      let code = "";
-      for (let attempt = 0; attempt < 5 && !code; attempt++) {
-        const candidate = createClassCode();
-        if (!(await db.class.findUnique({ where: { code: candidate } })))
-          code = candidate;
-      }
-      if (!code) throw new ActionError("초대 코드를 발급하지 못했습니다.");
-      await db.class.update({ where: { id: classId }, data: { code } });
+      await rotateClassCode(classId);
     } else if (op === "member-remove") {
       if (user.role !== "TEACHER") throw Error();
       const memberId = text(50).parse(form.get("memberId"));
