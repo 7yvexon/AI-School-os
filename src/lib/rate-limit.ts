@@ -1,8 +1,9 @@
 import "server-only";
 import { db } from "./db";
+import { validateRateLimitConfig } from "./rate-limit-core";
 
 export class RateLimitError extends Error {
-  retryAfterSeconds: number;
+  readonly retryAfterSeconds: number;
 
   constructor(retryAfterSeconds: number) {
     super("요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.");
@@ -12,20 +13,12 @@ export class RateLimitError extends Error {
 }
 
 export async function rateLimit(key: string, limit: number, windowMs: number) {
-  if (
-    !key ||
-    !Number.isInteger(limit) ||
-    limit < 1 ||
-    !Number.isInteger(windowMs) ||
-    windowMs < 1000
-  )
-    throw new RangeError("Invalid rate limit configuration.");
-  const bucket = Math.floor(Date.now() / windowMs);
+  const config = validateRateLimitConfig(key, limit, windowMs);
   const record = await db.rateLimit.upsert({
-    where: { key: `${key}:${bucket}` },
+    where: { key: `${config.key}:${config.bucket}` },
     create: {
-      key: `${key}:${bucket}`,
-      expiresAt: new Date((bucket + 1) * windowMs),
+      key: `${config.key}:${config.bucket}`,
+      expiresAt: new Date(config.expiresAtMs),
     },
     update: { count: { increment: 1 } },
   });

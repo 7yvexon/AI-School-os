@@ -3,6 +3,27 @@ const allowedOrigins = (process.env.SERVER_ACTION_ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const isAllowedOrigin = (origin: string) => {
+  const host = origin.startsWith("*.") ? origin.slice(2) : origin;
+  if (!host || host.includes("*") || host.includes("://")) return false;
+  try {
+    const url = new URL(`https://${host}`);
+    return (
+      url.pathname === "/" &&
+      !url.search &&
+      !url.hash &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+};
+if (allowedOrigins.some((origin) => !isAllowedOrigin(origin))) {
+  throw new Error(
+    "SERVER_ACTION_ALLOWED_ORIGINS에 유효하지 않은 원본이 있습니다.",
+  );
+}
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },

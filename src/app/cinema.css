@@ -66,6 +66,7 @@
   word-break: keep-all;
 }
 .cinema-caption > a {
+  min-height: 44px;
   margin-top: 26px;
   display: inline-flex;
   align-items: center;
@@ -104,8 +105,8 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  width: 35px;
-  height: 35px;
+  width: 44px;
+  height: 44px;
   color: white;
   cursor: pointer;
 }
@@ -126,8 +127,12 @@
 }
 .cinema-scroll {
   position: absolute;
-  bottom: 18px;
-  left: calc(50% - 10px);
+  bottom: 8px;
+  left: calc(50% - 22px);
+  width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
   opacity: 0.65;
 }
 .product-experience {
@@ -160,8 +165,12 @@
   max-width: 46%;
   pointer-events: none;
 }
+
+.experience-copy > * {
+  max-width: 100%;
+}
 .experience-copy > span {
-  color: #9099a8;
+  color: #5f6b7a;
   font-size: 10px;
   letter-spacing: 0.13em;
 }
@@ -175,16 +184,17 @@
 .experience-copy p {
   font-size: 16px;
   line-height: 1.95;
-  color: #7c8797;
+  color: #5f6b7a;
 }
 .experience-copy a {
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 14px;
   margin-top: 30px;
   font-size: 12px;
   font-weight: 700;
-  color: #3278f6;
+  color: #1d5fda;
   pointer-events: auto;
 }
 .experience-bottom {
@@ -192,7 +202,7 @@
   bottom: 25px;
   right: 6%;
   font-size: 10px;
-  color: #909aa8;
+  color: #697586;
 }
 .cinematic-landing .landing-statement {
   padding-block: 170px;
@@ -244,12 +254,13 @@
     top: auto;
     bottom: 180px;
     left: 7%;
+    right: 7%;
   }
   .cinema-caption h1 {
     font-size: 34px;
   }
   .cinema-caption p {
-    max-width: 270px;
+    max-width: 32ch;
     font-size: 12px;
   }
   .cinema-caption > a {
@@ -257,11 +268,14 @@
   }
   .cinema-bottom {
     left: 7%;
+    right: 7%;
     bottom: 45px;
     display: block;
   }
   .cinema-bottom > strong {
+    display: block;
     font-size: 25px;
+    line-height: 1.3;
   }
   .cinema-bottom > strong > span {
     margin-left: 20px;
@@ -278,8 +292,9 @@
   }
   .experience-copy {
     left: 8%;
+    right: 8%;
     top: 80px;
-    max-width: 90%;
+    max-width: none;
   }
   .experience-copy h2 {
     font-size: 31px;
@@ -306,5 +321,10 @@
   }
   .experience-pin {
     position: relative;
+  }
+
+  .cinema-caption a,
+  .experience-copy a {
+    transform: none !important;
   }
 }

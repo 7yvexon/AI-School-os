@@ -17,6 +17,7 @@ export default defineConfig([
     "build/**",
     ".local/**",
     "test-results/**",
+    ".agents/**",
     "next-env.d.ts",
   ]),
 ]);

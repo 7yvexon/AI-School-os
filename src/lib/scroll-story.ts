@@ -1,10 +1,15 @@
 /** Shared timeline for the camera, device UI and accessible HTML copy. */
+const clampProgress = (value: number) => {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+};
+
 export function storyProgress(top: number, height: number, viewport: number) {
-  return Math.max(0, Math.min(1, -top / Math.max(1, height - viewport)));
+  return clampProgress(-top / Math.max(1, height - viewport));
 }
 
 export function storyFrame(input: number) {
-  const p = Math.max(0, Math.min(1, input));
+  const p = clampProgress(input);
   const chapter = p < 0.35 ? 0 : p < 0.72 ? 1 : 2;
   const uiTime =
     chapter === 0
@@ -20,10 +25,10 @@ export function storyFrame(input: number) {
     { at: 0.81, x: 2.2, y: -0.05, yaw: -0.2, roll: -0.07, scale: 1 },
     { at: 1, x: 2.4, y: 0.1, yaw: -0.45, roll: 0.05, scale: 0.92 },
   ];
-  const index = Math.max(
-    0,
-    keys.findIndex((key, i) => i < keys.length - 1 && p <= keys[i + 1].at),
+  const foundIndex = keys.findIndex(
+    (_, i) => i < keys.length - 1 && p <= keys[i + 1].at,
   );
+  const index = foundIndex === -1 ? keys.length - 2 : foundIndex;
   const a = keys[index],
     b = keys[index + 1];
   const t = Math.max(0, Math.min(1, (p - a.at) / (b.at - a.at)));

@@ -1,20 +1,35 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-export function NavLink({
-  href,
-  children,
-}: {
+
+type NavLinkProps = Omit<
+  React.ComponentProps<typeof Link>,
+  "children" | "className" | "href"
+> & {
   href: string;
   children: React.ReactNode;
-}) {
-  const path = usePathname();
+  className?: string;
+};
+
+export function NavLink({ href, children, className, ...props }: NavLinkProps) {
+  const path = usePathname() ?? "";
+  const normalizedPath = path.length > 1 ? path.replace(/\/+$/, "") : path;
+  const normalizedHref = href.split(/[?#]/, 1)[0];
+  const normalizedTarget =
+    normalizedHref.length > 1
+      ? normalizedHref.replace(/\/+$/, "")
+      : normalizedHref;
   const active =
-    path === href || (path.startsWith(href + "/") && !href.endsWith("/new"));
+    normalizedPath === normalizedTarget ||
+    (normalizedPath.startsWith(`${normalizedTarget}/`) &&
+      !normalizedTarget.endsWith("/new"));
   return (
     <Link
-      className={`nav-link${active ? " active" : ""}`}
+      {...props}
       href={href}
+      className={["nav-link", active ? "active" : "", className ?? ""]
+        .filter(Boolean)
+        .join(" ")}
       aria-current={active ? "page" : undefined}
     >
       {children}

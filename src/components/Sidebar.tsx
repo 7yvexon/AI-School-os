@@ -38,38 +38,40 @@ export function Sidebar({
         ["학생 현황", `${base}/students`, Users],
       ] as const);
   return (
-    <aside className="sidebar" aria-label="주요 메뉴">
-      <Logo href={`${base}/dashboard`} />
-      <div className="nav-section">Workspace</div>
-      {links.map(([label, href, Icon]) => (
-        <NavLink key={href} href={href}>
-          <Icon size={17} />
-          <span>{label}</span>
-        </NavLink>
-      ))}
-      {role === "TEACHER" && (
-        <Link className="nav-link" href="/teacher/classes/new">
-          <Plus size={17} />
-          <span>새 클래스 만들기</span>
-        </Link>
-      )}
+    <aside className="sidebar">
+      <Logo href={`${base}/dashboard`} label="AI School OS 대시보드" />
+      <nav aria-label="주요 메뉴">
+        <div className="nav-section">Workspace</div>
+        {links.map(([label, href, Icon]) => (
+          <NavLink key={href} href={href}>
+            <Icon size={17} aria-hidden="true" focusable="false" />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+        {role === "TEACHER" && (
+          <Link className="nav-link" href="/teacher/classes/new">
+            <Plus size={17} aria-hidden="true" focusable="false" />
+            <span>새 클래스 만들기</span>
+          </Link>
+        )}
+      </nav>
       <div className="sidebar-footer">
-        <Link className="nav-link" href={`${base}/settings`}>
-          <Settings size={17} />
-          <span>설정</span>
-        </Link>
-        <form action={logout}>
-          <button
-            className="nav-link"
-            type="submit"
-            style={{ width: "100%", border: 0 }}
-          >
-            <LogOut size={17} />
-            <span>로그아웃</span>
-          </button>
-        </form>
+        <nav aria-label="계정 메뉴">
+          <NavLink href={`${base}/settings`}>
+            <Settings size={17} aria-hidden="true" focusable="false" />
+            <span>설정</span>
+          </NavLink>
+          <form action={logout}>
+            <button className="nav-link nav-button" type="submit">
+              <LogOut size={17} aria-hidden="true" focusable="false" />
+              <span>로그아웃</span>
+            </button>
+          </form>
+        </nav>
         <div className="profile-mini">
-          <span className="avatar">{user.name.slice(0, 1)}</span>
+          <span className="avatar" aria-hidden="true">
+            {user.name.slice(0, 1)}
+          </span>
           <div>
             <p>{user.name}</p>
             <small>{user.plan === "PRO" ? "PRO 플랜" : user.email}</small>

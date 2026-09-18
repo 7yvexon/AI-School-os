@@ -5,10 +5,12 @@ export async function accessibleAssignment(
   user: { id: string; role: string },
   options: { includeArchived?: boolean } = {},
 ) {
+  const includeArchived =
+    options.includeArchived === true && user.role === "TEACHER";
   return db.assignment.findFirst({
     where: {
       id,
-      ...(options.includeArchived ? {} : { archivedAt: null }),
+      ...(includeArchived ? {} : { archivedAt: null }),
       class:
         user.role === "TEACHER"
           ? { teacherId: user.id }

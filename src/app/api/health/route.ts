@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 const headers = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
 };
 
 function notReady(failed: "configuration" | "database") {

@@ -13,7 +13,19 @@ export function ProgressButton({
   value: boolean;
   label?: string;
 }) {
-  const [state, action] = useActionState<ActionState, FormData>(mutate, {});
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    mutate,
+    {},
+  );
+  const accessibleLabel =
+    label ??
+    (field === "completed"
+      ? value
+        ? "완료됨 · 취소하기"
+        : "완료 처리"
+      : value
+        ? "즐겨찾기 해제"
+        : "즐겨찾기");
   return (
     <form action={action}>
       <input type="hidden" name="op" value="progress" />
@@ -24,21 +36,28 @@ export function ProgressButton({
         className={
           field === "completed" ? "btn btn-secondary" : "btn btn-ghost"
         }
-        title={label}
-        aria-label={label}
+        title={accessibleLabel}
+        aria-label={accessibleLabel}
         aria-pressed={value}
+        aria-busy={pending}
+        disabled={pending}
         type="submit"
       >
         {field === "completed" ? (
           <>
-            <Check size={15} color={value ? "#0f9f6e" : undefined} />
-            {label || "완료 처리"}
+            <Check
+              size={15}
+              color={value ? "#0f9f6e" : undefined}
+              aria-hidden="true"
+            />
+            {label || (value ? "완료됨 · 취소하기" : "완료 처리")}
           </>
         ) : (
           <Star
             size={18}
             fill={value ? "#eab308" : "none"}
             color={value ? "#eab308" : "#7b8494"}
+            aria-hidden="true"
           />
         )}
       </button>

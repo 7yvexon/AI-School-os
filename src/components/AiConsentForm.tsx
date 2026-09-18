@@ -11,8 +11,8 @@ export function AiConsentForm({ granted = false }: { granted?: boolean }) {
     <section className="card card-pad">
       <h2 className="small-heading">AI 사용 동의</h2>
       <p className="prose-like">
-        AI에게 질문하면 과제 내용과 최근 대화, 학년·반 정보가 설정된 AI 제공자로
-        전송됩니다. 이름과 학교 이름은 전송하지 않습니다.
+        AI에게 질문하면 과제 내용과 최근 대화, 학년 정보가 설정된 AI 제공자로
+        전송됩니다. 이름·학교·반 정보는 전송하지 않습니다.
       </p>
       <ActionMessage state={state} />
       <form action={action}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { mutate, type ActionState } from "@/app/actions";
 import { ActionMessage } from "./ActionMessage";
 import { SubmitButton } from "./SubmitButton";
@@ -43,6 +43,9 @@ export function SubmissionReviewForm({
   reviews?: ReviewRecord[];
 }) {
   const [state, action] = useActionState<ActionState, FormData>(mutate, {});
+  const [reviewStatus, setReviewStatus] = useState<"RETURNED" | "REVIEWED">(
+    status === "RETURNED" ? "RETURNED" : "REVIEWED",
+  );
   const statusLabel =
     status === "REVIEWED"
       ? "검토 완료"
@@ -108,7 +111,12 @@ export function SubmissionReviewForm({
               <select
                 id={`review-status-${submissionId}`}
                 name="status"
-                defaultValue={status === "SUBMITTED" ? "REVIEWED" : status}
+                defaultValue={reviewStatus}
+                onChange={(event) =>
+                  setReviewStatus(
+                    event.currentTarget.value as "RETURNED" | "REVIEWED",
+                  )
+                }
               >
                 <option value="REVIEWED">검토 완료</option>
                 <option value="RETURNED">수정 요청</option>
@@ -121,9 +129,20 @@ export function SubmissionReviewForm({
                 name="feedback"
                 defaultValue={feedback}
                 maxLength={5000}
+                required={reviewStatus === "RETURNED"}
+                aria-required={reviewStatus === "RETURNED"}
+                aria-describedby={`review-feedback-hint-${submissionId}`}
                 placeholder="학생이 다음 단계로 나아갈 수 있는 의견을 남겨 주세요."
                 style={{ minHeight: 100 }}
               />
+              <span
+                id={`review-feedback-hint-${submissionId}`}
+                className="form-hint"
+              >
+                {reviewStatus === "RETURNED"
+                  ? "수정 요청을 선택하면 피드백이 필요합니다."
+                  : "선택 사항"}
+              </span>
             </div>
           </div>
           <div

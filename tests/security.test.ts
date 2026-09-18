@@ -2,7 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { requestIp } from "../src/lib/request";
 import { createClassCode } from "../src/lib/class-code";
-import { attachmentMimeMatchesData } from "../src/lib/attachment";
+import {
+  attachmentContentDisposition,
+  attachmentDataSizeAllowed,
+  attachmentMimeMatchesData,
+  sanitizeAttachmentName,
+} from "../src/lib/attachment";
+import { MAX_ATTACHMENT_BYTES } from "../src/lib/limits";
 import { parseRuntimeConfig, RuntimeConfigError } from "../src/lib/env-core";
 
 test("request IP uses forwarded headers only when the proxy is trusted", () => {
@@ -48,9 +54,33 @@ test("attachment MIME checks require matching signatures", () => {
   assert.equal(
     attachmentMimeMatchesData(
       "image/png",
-      new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+      new Uint8Array([
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0,
+        1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 0, 0, 0, 0, 0,
+      ]),
     ),
     true,
+  );
+  assert.equal(
+    attachmentMimeMatchesData(
+      "image/png",
+      new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    ),
+    false,
+  );
+  assert.equal(
+    attachmentMimeMatchesData(
+      "image/jpeg",
+      new Uint8Array([
+        0xff, 0xd8, 0xff, 0xe0, 0, 2, 0xff, 0xc0, 0, 11, 8, 0, 1, 0, 1, 1, 1,
+        0x11, 0,
+      ]),
+    ),
+    true,
+  );
+  assert.equal(
+    attachmentMimeMatchesData("image/jpeg", new Uint8Array([0xff, 0xd8, 0xff])),
+    false,
   );
   assert.equal(
     attachmentMimeMatchesData(
@@ -67,13 +97,53 @@ test("attachment MIME checks require matching signatures", () => {
     false,
   );
   assert.equal(
+    attachmentMimeMatchesData(
+      "application/pdf",
+      new TextEncoder().encode("%PDF-"),
+    ),
+    false,
+  );
+  assert.equal(
     attachmentMimeMatchesData("text/plain", new Uint8Array([65, 0, 66])),
+    false,
+  );
+  assert.equal(
+    attachmentMimeMatchesData("text/plain", new Uint8Array([65, 1, 66])),
     false,
   );
   assert.equal(
     attachmentMimeMatchesData("text/plain", new TextEncoder().encode("내용")),
     true,
   );
+  assert.equal(
+    attachmentMimeMatchesData("text/plain", new Uint8Array()),
+    false,
+  );
+  assert.equal(
+    attachmentMimeMatchesData("text/plain", new Uint8Array([0xfe, 0xff, 0x00])),
+    false,
+  );
+  assert.equal(
+    attachmentMimeMatchesData("text/plain", new Uint8Array([0xef, 0xbb, 0xbf])),
+    false,
+  );
+  assert.equal(attachmentDataSizeAllowed(new Uint8Array([1])), true);
+  assert.equal(
+    attachmentDataSizeAllowed(new Uint8Array(MAX_ATTACHMENT_BYTES)),
+    true,
+  );
+  assert.equal(
+    attachmentDataSizeAllowed(new Uint8Array(MAX_ATTACHMENT_BYTES + 1)),
+    false,
+  );
+  assert.equal(sanitizeAttachmentName("../notes.txt"), ".._notes.txt");
+  assert.equal(sanitizeAttachmentName("\u0000\r\n"), "___");
+  assert.equal(sanitizeAttachmentName("."), null);
+  assert.equal(sanitizeAttachmentName(null), null);
+  const disposition = attachmentContentDisposition("보고서 '최종'.txt");
+  assert.match(disposition, /^attachment; filename="/);
+  assert.match(disposition, /; filename\*=UTF-8''/);
+  assert.equal(/[\r\n]/.test(disposition), false);
 });
 
 test("runtime configuration validates production requirements without exposing values", () => {
@@ -102,6 +172,10 @@ test("runtime configuration validates production requirements without exposing v
         { ...source, SERVER_ACTION_ALLOWED_ORIGINS: "https://proxy.example" },
         true,
       ),
+    RuntimeConfigError,
+  );
+  assert.throws(
+    () => parseRuntimeConfig({ ...source, NODE_ENV: "staging" }, true),
     RuntimeConfigError,
   );
 });

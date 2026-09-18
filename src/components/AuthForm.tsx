@@ -212,10 +212,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 minLength={10}
                 maxLength={72}
                 autoComplete={register ? "new-password" : "current-password"}
+                aria-describedby={register ? "auth-password-hint" : undefined}
                 placeholder="10자 이상"
               />
               {register && (
-                <span className="study-auth-hint">
+                <span id="auth-password-hint" className="study-auth-hint">
                   개발용 계정도 안전하게 10자 이상을 사용해 주세요.
                 </span>
               )}

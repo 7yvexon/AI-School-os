@@ -12,6 +12,7 @@ AI School OS의 버그 수정, 문서 개선, 테스트 보강, 기능 제안을
 
 ```bash
 npm run db:generate
+npm run db:preflight
 npm run db:deploy
 npm run dev
 ```
@@ -62,11 +63,11 @@ npm run test
 npm run typecheck
 npm run build
 npm run test:e2e
-npm run db:cleanup
 ```
 
 문서만 바꾼 경우에도 링크, 코드 블록, 명령의 경로와 포트가 현재 저장소와 맞는지 확인합니다. E2E는 별도 로컬 DB와 AI 픽스처를 사용하므로 실제 운영 DB나 외부 AI 키를 연결하지 않습니다.
-운영 환경변수를 변경하거나 배포를 준비할 때는 `NODE_ENV=production`으로 `npm run ops:check-env`를 별도로 실행합니다.
+`npm run db:cleanup`은 검증 단계가 아니라 만료 세션·요청 제한 데이터를 정리하는 운영 작업이므로, 공유·운영 DB가 아닌 대상에서 필요할 때만 별도로 실행합니다. 운영 환경변수를 변경하거나 배포를 준비할 때는 PowerShell에서 `$env:NODE_ENV = "production"; npm run ops:check-env`, macOS·Linux에서 `NODE_ENV=production npm run ops:check-env`를 별도로 실행합니다.
+운영 모드 검사를 명시적으로 고정하려면 `npm run ops:check-env:production`을 사용할 수 있습니다.
 
 ## 풀 리퀘스트 체크리스트
 

@@ -8,22 +8,34 @@ export async function cleanupExpiredRecords(
 ) {
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 1000)
     throw new RangeError("Cleanup batch size must be between 1 and 1000.");
-  if (!Number.isFinite(now.getTime()))
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime()))
     throw new RangeError("Invalid cleanup time.");
 
   // Index-backed batches limit lock duration. Concurrent maintenance workers skip
   // rows already being cleaned instead of competing for the same locks.
   const [sessions, rateLimits] = await db.$transaction([
     db.$executeRaw`
-      DELETE FROM "Session" WHERE "id" IN (
-        SELECT "id" FROM "Session" WHERE "expiresAt" <= ${now}
-        ORDER BY "expiresAt" LIMIT ${batchSize} FOR UPDATE SKIP LOCKED
-      )`,
+      WITH expired AS (
+        SELECT "id" FROM "Session"
+        WHERE "expiresAt" <= ${now}
+        ORDER BY "expiresAt", "id"
+        LIMIT ${batchSize}
+        FOR UPDATE SKIP LOCKED
+      )
+      DELETE FROM "Session"
+      USING expired
+      WHERE "Session"."id" = expired."id"`,
     db.$executeRaw`
-      DELETE FROM "RateLimit" WHERE "key" IN (
-        SELECT "key" FROM "RateLimit" WHERE "expiresAt" <= ${now}
-        ORDER BY "expiresAt" LIMIT ${batchSize} FOR UPDATE SKIP LOCKED
-      )`,
+      WITH expired AS (
+        SELECT "key" FROM "RateLimit"
+        WHERE "expiresAt" <= ${now}
+        ORDER BY "expiresAt", "key"
+        LIMIT ${batchSize}
+        FOR UPDATE SKIP LOCKED
+      )
+      DELETE FROM "RateLimit"
+      USING expired
+      WHERE "RateLimit"."key" = expired."key"`,
   ]);
   return { sessions, rateLimits };
 }

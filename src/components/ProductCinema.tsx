@@ -3,59 +3,97 @@
 import { useEffect, useRef, useState } from "react";
 import { Pause, Play, ArrowUpRight, ArrowDown } from "lucide-react";
 import Link from "next/link";
+import { storyProgress } from "@/lib/scroll-story";
 
 export function FilmCanvas({ studio = false }: { studio?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const host = ref.current;
     if (!host) return;
-    if (studio && new URLSearchParams(location.search).has("film-render"))
-      return;
-    let cancelled = false,
-      frame = 0;
+    let cancelled = false;
+    let frame = 0;
     let film:
       | ReturnType<typeof import("@/lib/school-film").createSchoolFilm>
       | undefined;
-    const media = matchMedia("(prefers-reduced-motion: reduce)");
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     let visible = true;
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-    });
-    observer.observe(host);
+    const startTime = performance.now();
+    const renderFrame = (now: number) => {
+      if (cancelled || !film || host.dataset.recording === "true") return;
+      if (!visible || document.hidden) return;
+      const section = host.closest("section");
+      const rect = (section ?? host).getBoundingClientRect();
+      const progress = storyProgress(rect.top, rect.height, window.innerHeight);
+      const epoch = Number(host.dataset.epoch);
+      const start = Number.isFinite(epoch) ? epoch : startTime;
+      film.render(
+        media.matches ? 2 : (now - start) / 1000,
+        media.matches ? 0 : progress,
+      );
+    };
+    const draw = (now: number) => {
+      frame = 0;
+      if (cancelled || media.matches || host.dataset.recording === "true")
+        return;
+      renderFrame(now);
+      if (!cancelled && !media.matches) frame = requestAnimationFrame(draw);
+    };
+    const startDrawing = () => {
+      if (!cancelled && !media.matches && frame === 0)
+        frame = requestAnimationFrame(draw);
+    };
+    const observer =
+      typeof IntersectionObserver === "undefined"
+        ? undefined
+        : new IntersectionObserver(([entry]) => {
+            visible = entry?.isIntersecting ?? false;
+            if (!visible) {
+              if (frame) cancelAnimationFrame(frame);
+              frame = 0;
+            } else startDrawing();
+          });
+    observer?.observe(host);
+    const motionChange = () => {
+      if (media.matches) {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        renderFrame(performance.now());
+      } else startDrawing();
+    };
+    const visibilityChange = () => {
+      if (document.hidden) {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+      } else if (media.matches) renderFrame(performance.now());
+      else startDrawing();
+    };
+    media.addEventListener("change", motionChange);
+    document.addEventListener("visibilitychange", visibilityChange);
+    let manualRender: ((event: Event) => void) | undefined;
     import("@/lib/school-film")
       .then(({ createSchoolFilm }) => {
         if (cancelled) return;
         film = createSchoolFilm(host, studio);
-        const manualRender = (event: Event) =>
-          film?.render((event as CustomEvent<number>).detail);
+        manualRender = (event: Event) => {
+          const value = (event as CustomEvent<unknown>).detail;
+          if (typeof value === "number" && Number.isFinite(value))
+            film?.render(value);
+        };
         host.addEventListener("film-frame", manualRender);
         host.dataset.ready = "true";
-        const start = performance.now();
-        const draw = (now: number) => {
-          frame = requestAnimationFrame(draw);
-          if (host.dataset.recording === "true") return;
-          if (!visible || document.hidden) return;
-          const rect = host.closest("section")!.getBoundingClientRect();
-          const p = Math.max(
-            0,
-            Math.min(1, -rect.top / Math.max(1, rect.height - innerHeight)),
-          );
-          film?.render(
-            media.matches
-              ? 2
-              : (now - Number(host.dataset.epoch ?? start)) / 1000,
-            p,
-          );
-        };
-        frame = requestAnimationFrame(draw);
+        if (media.matches) renderFrame(performance.now());
+        else startDrawing();
       })
       .catch(() => {
-        host.dataset.failed = "true";
+        if (!cancelled) host.dataset.failed = "true";
       });
     return () => {
       cancelled = true;
-      cancelAnimationFrame(frame);
-      observer.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+      media.removeEventListener("change", motionChange);
+      document.removeEventListener("visibilitychange", visibilityChange);
+      observer?.disconnect();
+      if (manualRender) host.removeEventListener("film-frame", manualRender);
       film?.dispose();
     };
   }, [studio]);
@@ -104,18 +142,18 @@ const chapters = [
   },
 ];
 
-export function ProductCinema() {
+export function ProductCinema({
+  renderMode = false,
+}: {
+  renderMode?: boolean;
+}) {
   const video = useRef<HTMLVideoElement>(null);
   const [chapter, setChapter] = useState(0);
-  const [playing, setPlaying] = useState(true);
-  const [renderMode] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).has("film-render"),
-  );
+  const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
-    const media = matchMedia("(prefers-reduced-motion: reduce)");
+    if (renderMode) return;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => {
       if (media.matches) {
         video.current?.pause();
@@ -127,8 +165,9 @@ export function ProductCinema() {
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
-  }, []);
+  }, [renderMode]);
   const toggle = () => {
+    if (renderMode) return;
     const v = video.current;
     if (!v) return;
     if (v.paused) {
@@ -144,7 +183,9 @@ export function ProductCinema() {
           <video
             ref={video}
             onLoadedData={() => {
-              if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+              if (
+                window.matchMedia("(prefers-reduced-motion: reduce)").matches
+              ) {
                 video.current?.pause();
                 setPlaying(false);
               } else {
@@ -154,13 +195,19 @@ export function ProductCinema() {
             muted
             loop
             playsInline
-            preload="auto"
+            autoPlay
+            preload="metadata"
             poster="/media/school-film-poster.jpg"
-            onError={() => setFailed(true)}
+            aria-hidden="true"
+            onError={() => {
+              setFailed(true);
+              setPlaying(false);
+            }}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             onTimeUpdate={() => {
               const t = video.current?.currentTime ?? 0;
+              if (!Number.isFinite(t)) return;
               setChapter(t < 6 ? 0 : t < 14 ? 1 : 2);
             }}
           >
@@ -170,45 +217,62 @@ export function ProductCinema() {
         {failed && <FilmCanvas />}
       </div>
       <div className="cinema-shade" />
-      <div className="cinema-caption" key={chapter}>
+      <div className="cinema-caption" key={chapter} aria-live="polite">
         <span>{chapters[chapter].label}</span>
         <h1>{chapters[chapter].title}</h1>
         <p>{chapters[chapter].text}</p>
         <Link href="/register">
-          무료로 시작하기 <ArrowUpRight size={16} />
+          무료로 시작하기 <ArrowUpRight size={16} aria-hidden="true" />
         </Link>
       </div>
       <div className="cinema-bottom">
         <strong>
           마침내<span>학교생활 하나로</span>
         </strong>
-        <div className="cinema-controls">
-          <span className="cinema-progress">
-            <i
-              key={chapter}
-              style={{
-                animationDuration: chapter === 1 ? "8s" : "6s",
-                animationPlayState: playing ? "running" : "paused",
-              }}
-            />
-          </span>
-          <span>0{chapter + 1} / 03</span>
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label={playing ? "시연 영상 일시정지" : "시연 영상 재생"}
-          >
-            {playing ? <Pause size={15} /> : <Play size={15} />}
-          </button>
-        </div>
+        {!renderMode && (
+          <div className="cinema-controls">
+            <span className="cinema-progress" aria-hidden="true">
+              <i
+                key={chapter}
+                style={{
+                  animationDuration: chapter === 1 ? "8s" : "6s",
+                  animationPlayState: playing ? "running" : "paused",
+                }}
+              />
+            </span>
+            <span aria-label={`현재 장면 ${chapter + 1} / 3`}>
+              0{chapter + 1} / 03
+            </span>
+            <button
+              type="button"
+              onClick={toggle}
+              disabled={failed}
+              aria-label={
+                failed
+                  ? "시연 영상을 불러올 수 없습니다"
+                  : playing
+                    ? "시연 영상 일시정지"
+                    : "시연 영상 재생"
+              }
+            >
+              {playing ? (
+                <Pause size={15} aria-hidden="true" focusable="false" />
+              ) : (
+                <Play size={15} aria-hidden="true" focusable="false" />
+              )}
+            </button>
+          </div>
+        )}
       </div>
-      <a
-        className="cinema-scroll"
-        href="#experience"
-        aria-label="서비스 살펴보기"
-      >
-        <ArrowDown size={20} />
-      </a>
+      {!renderMode && (
+        <a
+          className="cinema-scroll"
+          href="#experience"
+          aria-label="서비스 살펴보기"
+        >
+          <ArrowDown size={20} aria-hidden="true" focusable="false" />
+        </a>
+      )}
     </section>
   );
 }
@@ -232,7 +296,7 @@ export function ProductExperience() {
             나의 하루에 꼭 맞는 새로운 학교생활.
           </p>
           <Link href="/register">
-            AI School OS 시작하기 <ArrowUpRight size={16} />
+            AI School OS 시작하기 <ArrowUpRight size={16} aria-hidden="true" />
           </Link>
         </div>
         <FilmCanvas studio />

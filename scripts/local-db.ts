@@ -1,18 +1,33 @@
 import EmbeddedPostgres from "embedded-postgres";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 
 async function readOrCreateSecret(path: string) {
-  if (existsSync(path)) return (await readFile(path, "utf8")).trim();
+  if (existsSync(path)) {
+    const stat = await lstat(path);
+    if (stat.isSymbolicLink() || !stat.isFile())
+      throw new Error(`비밀값 파일은 일반 파일이어야 합니다: ${path}`);
+    const existing = (await readFile(path, "utf8")).trim();
+    if (!existing) throw new Error(`비밀값 파일이 비어 있습니다: ${path}`);
+    await chmod(path, 0o600);
+    return existing;
+  }
   const generated = randomBytes(24).toString("hex");
   try {
     await writeFile(path, `${generated}\n`, { flag: "wx", mode: 0o600 });
+    await chmod(path, 0o600);
     return generated;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    return (await readFile(path, "utf8")).trim();
+    const stat = await lstat(path);
+    if (stat.isSymbolicLink() || !stat.isFile())
+      throw new Error(`비밀값 파일은 일반 파일이어야 합니다: ${path}`);
+    const existing = (await readFile(path, "utf8")).trim();
+    if (!existing) throw new Error(`비밀값 파일이 비어 있습니다: ${path}`);
+    await chmod(path, 0o600);
+    return existing;
   }
 }
 
@@ -23,6 +38,9 @@ async function main() {
   const passwordPath = resolve(".local/postgres-password");
   let databasePassword = "";
   if (existsSync(envPath)) {
+    const envStat = await lstat(envPath);
+    if (envStat.isSymbolicLink() || !envStat.isFile())
+      throw new Error(".env는 일반 파일이어야 합니다.");
     const currentEnv = await readFile(envPath, "utf8");
     const match = currentEnv.match(
       /^DATABASE_URL=["']?postgres(?:ql)?:\/\/[^:@\s]+:([^@"'\s]+)@/m,
@@ -46,8 +64,14 @@ async function main() {
     await writeFile(
       ".env",
       `DATABASE_URL="postgresql://school:${databasePassword}@localhost:5432/school_os?schema=public"\nAUTH_SECRET="${randomBytes(32).toString("hex")}"\nAPP_URL="http://localhost:3000"\nTRUST_PROXY="false"\nSERVER_ACTION_ALLOWED_ORIGINS=""\nAI_API_KEY=""\nAI_BASE_URL="https://api.openai.com/v1"\nAI_MODEL=""\n`,
-      { flag: "wx" },
+      { flag: "wx", mode: 0o600 },
     );
+  else {
+    const envStat = await lstat(envPath);
+    if (envStat.isSymbolicLink() || !envStat.isFile())
+      throw new Error(".env는 일반 파일이어야 합니다.");
+  }
+  await chmod(envPath, 0o600);
   const pg = new EmbeddedPostgres({
     databaseDir,
     port: 5432,

@@ -2,7 +2,11 @@ import "dotenv/config";
 import { parseRuntimeConfig, RuntimeConfigError } from "../src/lib/env-core";
 
 try {
-  const config = parseRuntimeConfig(process.env);
+  const forceProduction = process.argv.slice(2).includes("--production");
+  const config = parseRuntimeConfig(
+    process.env,
+    forceProduction ? true : undefined,
+  );
   console.log(
     "환경 설정 확인 완료:",
     config.appUrl,

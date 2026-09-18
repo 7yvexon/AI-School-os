@@ -59,7 +59,7 @@ export function Heading({
 export function Empty({ children }: { children: React.ReactNode }) {
   return (
     <div className="empty card">
-      <BookOpen size={28} />
+      <BookOpen size={28} aria-hidden="true" focusable="false" />
       <p>{children}</p>
     </div>
   );
@@ -85,9 +85,11 @@ export async function Dashboard({ role }: { role: Role }) {
       include: { class: true, progress: { where: { userId: user.id } } },
       orderBy: { dueAt: "asc" },
     }),
-    db.aIUsage.findUnique({
-      where: { userId_day: { userId: user.id, day: dayKey() } },
-    }),
+    role === "STUDENT" && user.aiConsentAt
+      ? db.aIUsage.findUnique({
+          where: { userId_day: { userId: user.id, day: dayKey() } },
+        })
+      : Promise.resolve(null),
     role === "STUDENT"
       ? db.personalEvent.findMany({
           where: {
@@ -176,18 +178,23 @@ export async function Dashboard({ role }: { role: Role }) {
                 : "/teacher/classes/new"
             }
           >
-            <Plus size={16} />
+            <Plus size={16} aria-hidden="true" focusable="false" />
             빠른 등록
           </Link>
         ) : (
-          <GraduationCap className="hero-symbol" size={48} />
+          <GraduationCap
+            className="hero-symbol"
+            size={48}
+            aria-hidden="true"
+            focusable="false"
+          />
         )}
       </div>
       <div className="grid stats-grid">
         {stats.map((s) => (
           <div className="card stat-card" key={s.label}>
             <div className="stat-icon">
-              <s.icon size={18} />
+              <s.icon size={18} aria-hidden="true" focusable="false" />
             </div>
             <div className="stat-label">{s.label}</div>
             <div className="stat-value">{s.value}</div>
@@ -210,7 +217,7 @@ export async function Dashboard({ role }: { role: Role }) {
                     <span className="count">{items.length}</span>
                   </h2>
                   <Link className="text-link" href={`${base}/assignments`}>
-                    전체 보기 <ArrowUpRight size={13} />
+                    전체 보기 <ArrowUpRight size={13} aria-hidden="true" />
                   </Link>
                 </div>
                 {items.length ? (
@@ -259,7 +266,7 @@ export async function Dashboard({ role }: { role: Role }) {
           </div>
           <div className="card card-pad">
             <div className="stat-icon">
-              <MessageCircle size={18} />
+              <MessageCircle size={18} aria-hidden="true" focusable="false" />
             </div>
             <h3 style={{ margin: "0 0 10px" }}>
               {role === "STUDENT"
@@ -291,7 +298,7 @@ export async function Dashboard({ role }: { role: Role }) {
               }
             >
               {role === "TEACHER" ? "클래스 관리하기" : "시작하기"}{" "}
-              <ArrowUpRight size={15} />
+              <ArrowUpRight size={15} aria-hidden="true" focusable="false" />
             </Link>
           </div>
           <div className="section-heading">
@@ -311,7 +318,11 @@ export async function Dashboard({ role }: { role: Role }) {
                       {a.class.subject} · {dday(a.dueAt)}
                     </p>
                   </div>
-                  <ArrowUpRight size={15} />
+                  <ArrowUpRight
+                    size={15}
+                    aria-hidden="true"
+                    focusable="false"
+                  />
                 </Link>
               ))
             ) : (
@@ -322,7 +333,18 @@ export async function Dashboard({ role }: { role: Role }) {
             <div className="plan-mini card card-pad">
               <span className="badge badge-blue">{user.plan}</span>
               <h3>오늘의 AI 사용량</h3>
-              <div className="progress-bar">
+              <div
+                className="progress-bar"
+                role="progressbar"
+                aria-label="오늘의 AI 사용량"
+                aria-valuemin={0}
+                aria-valuemax={dailyLimit(user.plan)}
+                aria-valuenow={Math.min(
+                  usage?.count ?? 0,
+                  dailyLimit(user.plan),
+                )}
+                aria-valuetext={`${usage?.count ?? 0}/${dailyLimit(user.plan)}회`}
+              >
                 <span
                   style={{
                     width: `${Math.min(100, ((usage?.count ?? 0) / dailyLimit(user.plan)) * 100)}%`,
@@ -371,7 +393,7 @@ export async function Classes({ role }: { role: Role }) {
         <h2>참여한 수업 {classes.length}</h2>
         {role === "TEACHER" && (
           <Link className="btn btn-primary" href="/teacher/classes/new">
-            <Plus size={16} />
+            <Plus size={16} aria-hidden="true" focusable="false" />
             클래스 만들기
           </Link>
         )}
@@ -384,7 +406,7 @@ export async function Classes({ role }: { role: Role }) {
             href={`${base}/classes/${c.id}`}
           >
             <div className="stat-icon">
-              <BookOpen size={20} />
+              <BookOpen size={20} aria-hidden="true" focusable="false" />
             </div>
             <div className="class-head">
               <div>
@@ -393,7 +415,7 @@ export async function Classes({ role }: { role: Role }) {
                   {c.subject} · {c.teacher.name} 선생님
                 </p>
               </div>
-              <ArrowUpRight size={18} />
+              <ArrowUpRight size={18} aria-hidden="true" focusable="false" />
             </div>
             <div className="class-card-footer">
               <span>학생 {c._count.members}명</span>
@@ -403,7 +425,11 @@ export async function Classes({ role }: { role: Role }) {
         ))}
       </div>
       {!classes.length && (
-        <Empty>아직 클래스가 없어요. 아래에서 첫 수업을 시작해 보세요.</Empty>
+        <Empty>
+          {role === "TEACHER"
+            ? "아직 클래스가 없어요. 위에서 첫 수업을 만들어 보세요."
+            : "아직 클래스가 없어요. 아래에서 첫 수업을 시작해 보세요."}
+        </Empty>
       )}
       {role === "STUDENT" && (
         <section style={{ maxWidth: 560 }}>
@@ -472,7 +498,7 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
             className="btn btn-primary"
             href={`/teacher/classes/${id}/assignments/new`}
           >
-            <Plus size={16} />
+            <Plus size={16} aria-hidden="true" focusable="false" />
             과제 등록
           </Link>
         )}
@@ -636,7 +662,7 @@ export async function AssignmentDetail({
         })
       : null;
   const conversation =
-    role === "STUDENT"
+    role === "STUDENT" && user.aiConsentAt
       ? await db.aIConversation.findUnique({
           where: { userId_assignmentId: { userId: user.id, assignmentId: id } },
           include: {
@@ -692,7 +718,7 @@ export async function AssignmentDetail({
         })
       : [];
   const usage =
-    role === "STUDENT"
+    role === "STUDENT" && user.aiConsentAt
       ? await db.aIUsage.findUnique({
           where: { userId_day: { userId: user.id, day: dayKey() } },
         })
@@ -907,9 +933,12 @@ export async function AssignmentDetail({
 
 export async function Settings({ role }: { role: Role }) {
   const user = await requireUser(role);
-  const usage = await db.aIUsage.findUnique({
-    where: { userId_day: { userId: user.id, day: dayKey() } },
-  });
+  const usage =
+    role === "STUDENT" && user.aiConsentAt
+      ? await db.aIUsage.findUnique({
+          where: { userId_day: { userId: user.id, day: dayKey() } },
+        })
+      : null;
   return (
     <>
       <Heading
@@ -967,7 +996,7 @@ export async function Settings({ role }: { role: Role }) {
           </p>
         </div>
       </div>
-      {role === "STUDENT" && (
+      {role === "STUDENT" && user.aiConsentAt && (
         <p className="page-subtitle" style={{ marginTop: 20 }}>
           오늘 {usage?.count ?? 0}/{dailyLimit(user.plan)}회 사용 · 기록된 토큰{" "}
           {usage?.tokens ?? 0}개

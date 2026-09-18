@@ -5,6 +5,9 @@ import { dayKey } from "../../src/lib/domain";
 const db = new PrismaClient();
 const e2eTestPassword =
   process.env.E2E_TEST_PASSWORD ?? randomBytes(24).toString("base64url");
+const e2eOrigin = `http://localhost:${process.env.E2E_PORT ?? "3100"}`;
+const futureDate = (days: number) =>
+  dayKey(new Date(Date.now() + days * 24 * 60 * 60 * 1000));
 test.afterAll(() => db.$disconnect());
 async function register(
   page: Page,
@@ -26,6 +29,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   browser,
 }) => {
   const stamp = Date.now();
+  const dueDate = futureDate(7);
   const teacherContext = await browser.newContext();
   const teacher = await teacherContext.newPage();
   const studentContext = await browser.newContext();
@@ -48,7 +52,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await teacher.getByRole("link", { name: "과제 등록", exact: true }).click();
   await teacher.getByLabel("제목", { exact: true }).fill("E2E 탐구 과제");
   await teacher.getByLabel("종류", { exact: true }).selectOption("ASSESSMENT");
-  await teacher.getByLabel("마감일", { exact: true }).fill("2026-09-20");
+  await teacher.getByLabel("마감일", { exact: true }).fill(dueDate);
   await teacher
     .getByLabel("설명", { exact: true })
     .fill("관심 있는 주제를 조사하고 결과를 분석합니다.");
@@ -169,7 +173,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   expect(
     (
       await studentContext.request.post("/api/ai", {
-        headers: { origin: "http://localhost:3100" },
+        headers: { origin: e2eOrigin },
         data: { assignmentId, message: "동의 전 접근 테스트" },
       })
     ).status(),
@@ -195,7 +199,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   });
   expect(usage.count).toBe(1);
   expect(usage.tokens).toBe(123);
-  const request = (message: string, origin = "http://localhost:3100") =>
+  const request = (message: string, origin = e2eOrigin) =>
     studentContext.request.post("/api/ai", {
       headers: { origin },
       data: { assignmentId, message },
@@ -261,7 +265,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     .getByRole("navigation", { name: "모바일 메뉴" })
     .getByRole("button", { name: "로그아웃" })
     .click();
-  await expect(student).toHaveURL("http://localhost:3100/");
+  await expect(student).toHaveURL(`${e2eOrigin}/`);
   await student.goto("/login");
   await student.getByLabel("이메일").fill(`student-${stamp}@example.com`);
   await student.getByLabel("비밀번호").fill(e2eTestPassword);
@@ -284,7 +288,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   expect(
     (
       await outsiderContext.request.post("/api/ai", {
-        headers: { origin: "http://localhost:3100" },
+        headers: { origin: e2eOrigin },
         data: { assignmentId, message: "접근 테스트" },
       })
     ).status(),

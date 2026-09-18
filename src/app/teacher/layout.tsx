@@ -12,9 +12,7 @@ export default async function Layout({
       user={{ name: user.name, email: user.email, plan: user.plan }}
       title="수업 관리"
     >
-      <div id="main-content" className="content">
-        {children}
-      </div>
+      <div className="content">{children}</div>
     </AppShell>
   );
 }

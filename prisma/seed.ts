@@ -15,8 +15,11 @@ async function seed() {
     where: { email: "teacher@example.com" },
     update: {
       name: "선생님",
+      role: "TEACHER",
+      passwordHash,
       school: "우리학교",
       teacherApprovedAt: new Date(),
+      aiConsentAt: null,
     },
     create: {
       email: "teacher@example.com",
@@ -31,9 +34,13 @@ async function seed() {
     where: { email: "student@example.com" },
     update: {
       name: "학생",
+      role: "STUDENT",
+      passwordHash,
       school: "우리학교",
       grade: "2",
       classroom: "3",
+      teacherApprovedAt: null,
+      aiConsentAt: null,
     },
     create: {
       email: "student@example.com",
@@ -70,7 +77,7 @@ async function seed() {
       });
   await db.classMember.upsert({
     where: { userId_classId: { userId: student.id, classId: cls.id } },
-    update: {},
+    update: { removedAt: null },
     create: { userId: student.id, classId: cls.id },
   });
   await db.assignment.upsert({

@@ -9,7 +9,7 @@ Type=exec
 User=__SERVICE_USER__
 Group=__SERVICE_USER__
 WorkingDirectory=__APP_ROOT__/current
-EnvironmentFile=__CONFIG_ROOT__/app.env
+EnvironmentFile=__ENV_FILE__
 Environment=HOSTNAME=127.0.0.1
 Environment=PORT=__APP_PORT__
 ExecStartPre=/usr/bin/test -r __APP_ROOT__/current/.next/BUILD_ID

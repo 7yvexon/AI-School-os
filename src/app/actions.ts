@@ -10,8 +10,13 @@ import { ownedClass, accessibleAssignment } from "@/lib/access";
 import { rateLimit, RateLimitError } from "@/lib/rate-limit";
 import { hashIdentifier, requestIp } from "@/lib/request";
 import { createClassCode } from "@/lib/class-code";
-import { attachmentMimeMatchesData } from "@/lib/attachment";
 import {
+  attachmentDataSizeAllowed,
+  attachmentMimeMatchesData,
+  sanitizeAttachmentName,
+} from "@/lib/attachment";
+import {
+  MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENT_BYTES_PER_CLASS,
   MAX_ATTACHMENTS_PER_CLASS,
 } from "@/lib/limits";
@@ -19,6 +24,33 @@ const text = (max: number) =>
   z.string().trim().min(1, "필수 항목을 입력해 주세요.").max(max);
 const due = z.iso.date().transform((v) => new Date(`${v}T23:59:59+09:00`));
 const reviewStatus = z.enum(["RETURNED", "REVIEWED"]);
+const operation = z.enum([
+  "profile",
+  "join",
+  "class",
+  "class-code-rotate",
+  "member-remove",
+  "member-restore",
+  "ai-consent",
+  "ai-consent-revoke",
+  "ai-conversations-delete",
+  "assignment",
+  "delete",
+  "assignment-archive",
+  "assignment-restore",
+  "submission",
+  "submission-review",
+  "attachment-delete",
+  "progress",
+  "event",
+  "event-delete",
+]);
+const attachmentMime = z.enum([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "text/plain",
+]);
 export type ActionState = { error?: string; success?: string };
 class ActionError extends Error {}
 function isUniqueConstraintError(e: unknown) {
@@ -129,6 +161,8 @@ export async function authenticate(
         return { error: "이메일 또는 비밀번호가 올바르지 않습니다." };
       }
     }
+    if (user.role === "TEACHER" && !user.teacherApprovedAt)
+      throw new ActionError("교사 승인이 필요합니다.");
     await createSession(user.id);
     target = `/${user.role.toLowerCase()}/dashboard`;
   } catch (e) {
@@ -145,12 +179,12 @@ export async function mutate(
   form: FormData,
 ): Promise<ActionState> {
   const user = await requireUser();
-  const op = String(form.get("op"));
   let target = "";
   try {
     const ip = requestIp(await headers());
     await rateLimit(`write:ip:${hashIdentifier(ip)}`, 200, 60000);
     await rateLimit(`write:${user.id}`, 100, 60000);
+    const op = operation.parse(form.get("op"));
     const raw = Object.fromEntries(form);
     if (op === "profile") {
       const data = z
@@ -199,33 +233,27 @@ export async function mutate(
     } else if (op === "member-remove") {
       if (user.role !== "TEACHER") throw Error();
       const memberId = text(50).parse(form.get("memberId"));
-      const member = await db.classMember.findFirst({
+      const result = await db.classMember.updateMany({
         where: {
           id: memberId,
           removedAt: null,
           class: { teacherId: user.id },
         },
-      });
-      if (!member) throw Error();
-      await db.classMember.update({
-        where: { id: memberId },
         data: { removedAt: new Date() },
       });
+      if (result.count !== 1) throw Error();
     } else if (op === "member-restore") {
       if (user.role !== "TEACHER") throw Error();
       const memberId = text(50).parse(form.get("memberId"));
-      const member = await db.classMember.findFirst({
+      const result = await db.classMember.updateMany({
         where: {
           id: memberId,
           removedAt: { not: null },
           class: { teacherId: user.id },
         },
-      });
-      if (!member) throw Error();
-      await db.classMember.update({
-        where: { id: memberId },
         data: { removedAt: null },
       });
+      if (result.count !== 1) throw Error();
     } else if (op === "ai-consent") {
       if (user.role !== "STUDENT") throw Error();
       await db.user.update({
@@ -254,7 +282,9 @@ export async function mutate(
           dueAt: due,
         })
         .parse(raw);
-      const id = String(form.get("id") || "");
+      const idValue = form.get("id");
+      const id =
+        idValue === null ? "" : z.string().trim().max(50).parse(idValue);
       if (id && !(await db.assignment.findFirst({ where: { id, classId } })))
         throw Error();
       const file = form.get("file");
@@ -266,26 +296,27 @@ export async function mutate(
             data: Uint8Array<ArrayBuffer>;
           }
         | undefined;
+      if (file !== null && !(file instanceof File))
+        return { error: "첨부파일을 확인해 주세요." };
       if (file instanceof File && file.size) {
-        if (file.size > 5 * 1024 * 1024)
-          return { error: "첨부파일은 5MB 이하여야 합니다." };
         if (
-          ![
-            "application/pdf",
-            "image/png",
-            "image/jpeg",
-            "text/plain",
-          ].includes(file.type)
+          !Number.isSafeInteger(file.size) ||
+          file.size > MAX_ATTACHMENT_BYTES
         )
+          return { error: "첨부파일은 5MB 이하여야 합니다." };
+        const mime = attachmentMime.safeParse(file.type);
+        if (!mime.success)
           return { error: "PDF, PNG, JPG, TXT 파일만 첨부할 수 있습니다." };
         const data = new Uint8Array(await file.arrayBuffer());
-        const name = file.name.trim().slice(0, 200);
+        if (data.byteLength !== file.size || !attachmentDataSizeAllowed(data))
+          return { error: "첨부파일은 5MB 이하여야 합니다." };
+        const name = sanitizeAttachmentName(file.name);
         if (!name) return { error: "첨부파일 이름을 확인해 주세요." };
-        if (!attachmentMimeMatchesData(file.type, data))
+        if (!attachmentMimeMatchesData(mime.data, data))
           return { error: "파일 형식과 내용이 일치하지 않습니다." };
         attachment = {
           name,
-          mime: file.type,
+          mime: mime.data,
           size: data.byteLength,
           data,
         };
@@ -386,6 +417,10 @@ export async function mutate(
           throw new ActionError(
             "검토가 완료된 제출물은 수정할 수 없습니다. 반려된 뒤 다시 제출해 주세요.",
           );
+        if (existing?.status === "SUBMITTED")
+          throw new ActionError(
+            "검토 중인 제출물은 수정할 수 없습니다. 선생님의 검토 결과를 기다려 주세요.",
+          );
         await tx.submission.upsert({
           where: {
             assignmentId_studentId: {
@@ -405,6 +440,7 @@ export async function mutate(
             status: "SUBMITTED",
             submittedAt: new Date(),
             reviewedAt: null,
+            feedback: "",
           },
         });
         await tx.assignmentProgress.upsert({
@@ -487,11 +523,10 @@ export async function mutate(
     } else if (op === "attachment-delete") {
       if (user.role !== "TEACHER") throw Error();
       const id = text(50).parse(form.get("id"));
-      const a = await db.attachment.findFirst({
+      const result = await db.attachment.deleteMany({
         where: { id, assignment: { class: { teacherId: user.id } } },
       });
-      if (!a) throw Error();
-      await db.attachment.delete({ where: { id } });
+      if (result.count !== 1) throw Error();
     } else if (op === "progress") {
       if (user.role !== "STUDENT") throw Error();
       const id = text(50).parse(form.get("id"));

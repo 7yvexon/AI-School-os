@@ -3,7 +3,7 @@
 :root {
   --ink: #20242c;
   --ink-soft: #667085;
-  --muted: #8b96a8;
+  --muted: #697586;
   --line: #e3e7ef;
   --line-strong: #cbd5e1;
   --paper: #f7f8fc;
@@ -12,11 +12,11 @@
   --blue: #4267f6;
   --blue-dark: #3154e6;
   --blue-soft: #edf1ff;
-  --green: #19a974;
+  --green: #13795b;
   --green-soft: #e6f5ee;
-  --amber: #a96e1b;
+  --amber: #87550d;
   --amber-soft: #fff4dc;
-  --red: #dc5b5b;
+  --red: #b42318;
   --red-soft: #fff0f0;
   --mark: #8ea6ff;
   --mark-soft: #e7ecff;
@@ -45,6 +45,7 @@
 html {
   background: var(--paper);
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -57,6 +58,7 @@ body {
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
 }
 
 a {
@@ -119,6 +121,7 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
 }
 
@@ -127,6 +130,7 @@ button:disabled {
   top: 0;
   width: 248px;
   height: 100vh;
+  height: 100dvh;
   flex: 0 0 248px;
   overflow-y: auto;
   border-right: 1px solid var(--line);
@@ -223,6 +227,12 @@ button:disabled {
   font-weight: 800;
 }
 
+.nav-button {
+  width: 100%;
+  border: 0;
+  text-align: left;
+}
+
 .sidebar-footer {
   margin-top: auto;
   padding-top: 16px;
@@ -308,6 +318,7 @@ button:disabled {
 .content {
   width: 100%;
   max-width: 1180px;
+  min-width: 0;
   margin: 0 auto;
   padding: 46px 40px 80px;
 }
@@ -567,6 +578,7 @@ button:disabled {
     background 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease;
+  touch-action: manipulation;
 }
 
 .btn-primary {
@@ -763,6 +775,13 @@ fieldset.field {
   outline-offset: 0;
 }
 
+.field input:focus-visible,
+.field textarea:focus-visible,
+.field select:focus-visible {
+  outline-color: var(--focus);
+  outline-offset: 2px;
+}
+
 .form-hint {
   color: var(--ink-soft);
   font-size: 11px;
@@ -837,6 +856,7 @@ fieldset.field {
 
 .auth-shell {
   min-height: 100vh;
+  min-height: 100svh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -1071,6 +1091,10 @@ fieldset.field {
   flex: 0 0 auto;
 }
 
+.detail-actions > * {
+  min-width: 0;
+}
+
 .detail-body {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(285px, 0.65fr);
@@ -1108,7 +1132,13 @@ fieldset.field {
   color: var(--ink-soft);
 }
 
+.info-row > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .chat-heading {
+  min-width: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1116,6 +1146,7 @@ fieldset.field {
 }
 
 .chat-heading h2 {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1192,11 +1223,13 @@ fieldset.field {
 
 .message {
   max-width: 82%;
+  min-width: 0;
   padding: 12px 14px;
   border-radius: 10px;
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .message.user {
@@ -1251,6 +1284,11 @@ fieldset.field {
   border-color: var(--blue);
   outline: 3px solid var(--blue-soft);
   outline-offset: 0;
+}
+
+.chat-form textarea:focus-visible {
+  outline-color: var(--focus);
+  outline-offset: 2px;
 }
 
 .chat-form button {
@@ -1361,6 +1399,11 @@ fieldset.field {
   border-radius: 10px;
   background: var(--surface);
   box-shadow: 0 18px 36px rgba(30, 41, 51, 0.14);
+  max-width: calc(100vw - 24px);
+}
+
+.mobile-nav[hidden] {
+  display: none;
 }
 
 .mobile-nav a {
@@ -1448,8 +1491,18 @@ fieldset.field {
     padding: 34px 16px 56px;
   }
 
+  .card-pad {
+    padding: 20px;
+  }
+
   .page-heading {
     margin-bottom: 28px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .page-title {
@@ -1533,6 +1586,10 @@ fieldset.field {
     padding: 28px 22px;
   }
 
+  .chat-card {
+    min-height: min(620px, calc(100svh - 132px));
+  }
+
   .mobile-nav {
     left: -4px;
     min-width: min(260px, calc(100vw - 32px));
@@ -1544,18 +1601,21 @@ fieldset.field {
     scroll-behavior: auto;
   }
 
-  .skeleton,
-  .assignment-row,
-  .class-card {
-    animation: none;
-    transition: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
 .study-auth-page {
   position: relative;
   min-height: 100svh;
-  overflow: hidden;
+  overflow-x: clip;
   isolation: isolate;
   background:
     radial-gradient(
@@ -1620,7 +1680,7 @@ fieldset.field {
 }
 
 .study-auth-header > span {
-  color: #8b96a8;
+  color: #697586;
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.12em;
@@ -1628,6 +1688,9 @@ fieldset.field {
 
 .study-auth-header > a {
   margin-left: auto;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   color: #667085;
   font-size: 12px;
 }
@@ -1725,13 +1788,13 @@ fieldset.field {
 }
 
 .study-auth-steps small {
-  color: #8290a5;
+  color: #5f6b7a;
   font-size: 11px;
 }
 
 .study-auth-steps li:not(.is-active) > span,
 .study-auth-steps li:not(.is-active) strong {
-  color: #8b96a8;
+  color: #697586;
 }
 
 .study-auth-activity {
@@ -1770,11 +1833,11 @@ fieldset.field {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #19a974;
+  background: #13795b;
 }
 
 .study-auth-activity-top small {
-  color: #8b96a8;
+  color: #697586;
   font-size: 10px;
 }
 
@@ -1800,7 +1863,7 @@ fieldset.field {
 }
 
 .study-auth-activity-line:nth-child(4) > span {
-  border-color: #19a974;
+  border-color: #13795b;
 }
 
 .study-auth-activity-line p {
@@ -1841,7 +1904,7 @@ fieldset.field {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #19a974;
+  color: #13795b;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1851,11 +1914,11 @@ fieldset.field {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #19a974;
+  background: #13795b;
 }
 
 .study-auth-card-status small {
-  color: #a0aabb;
+  color: #5f6b7a;
   font-size: 10px;
 }
 
@@ -1879,7 +1942,7 @@ fieldset.field {
 
 .study-auth-card-header > p:last-child {
   margin: 14px 0 0;
-  color: #8b96a8;
+  color: #697586;
   font-size: 12px;
 }
 
@@ -1923,7 +1986,7 @@ fieldset.field {
 }
 
 .study-auth-field input::placeholder {
-  color: #a0aabb;
+  color: #697586;
 }
 
 .study-auth-field input:hover {
@@ -1934,6 +1997,11 @@ fieldset.field {
   border-color: #4267f6;
   background: #fff;
   box-shadow: 0 0 0 3px rgba(66, 103, 246, 0.12);
+}
+
+.study-auth-field input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .study-auth-role-field {
@@ -1987,7 +2055,7 @@ fieldset.field {
 }
 
 .study-auth-role-option input:focus-visible + label {
-  outline: 3px solid rgba(66, 103, 246, 0.27);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -1997,12 +2065,12 @@ fieldset.field {
 }
 
 .study-auth-role-option small {
-  color: #8b96a8;
+  color: #697586;
   font-size: 10px;
 }
 
 .study-auth-hint {
-  color: #8b96a8;
+  color: #697586;
   font-size: 10px;
   line-height: 1.5;
 }
@@ -2033,12 +2101,15 @@ fieldset.field {
 
 .study-auth-footer {
   margin: 24px 0 0;
-  color: #8b96a8;
+  color: #697586;
   font-size: 11px;
   text-align: center;
 }
 
 .study-auth-footer a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   color: #4267f6;
   font-weight: 800;
   text-decoration: underline;
@@ -2353,7 +2424,7 @@ fieldset.field {
 }
 
 .deep-auth-page .study-auth-card-status small {
-  color: rgba(30, 35, 44, 0.48);
+  color: rgba(30, 35, 44, 0.68);
 }
 
 .deep-auth-page .study-auth-card-header {
@@ -2376,7 +2447,7 @@ fieldset.field {
 }
 
 .deep-auth-page .study-auth-card-header > p:last-child {
-  color: rgba(30, 35, 44, 0.58);
+  color: rgba(30, 35, 44, 0.7);
 }
 
 .deep-auth-page .study-auth-form {
@@ -2398,7 +2469,7 @@ fieldset.field {
 }
 
 .deep-auth-page .study-auth-field input::placeholder {
-  color: rgba(30, 35, 44, 0.43);
+  color: rgba(30, 35, 44, 0.62);
 }
 
 .deep-auth-page .study-auth-field input:hover {
@@ -2409,6 +2480,11 @@ fieldset.field {
   border-color: #4176e6;
   background: rgba(255, 255, 255, 0.7);
   box-shadow: 0 0 0 3px rgba(65, 118, 230, 0.13);
+}
+
+.deep-auth-page .study-auth-field input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .deep-auth-page .study-auth-role-grid {
@@ -2439,7 +2515,7 @@ fieldset.field {
 
 .deep-auth-page .study-auth-role-option small,
 .deep-auth-page .study-auth-hint {
-  color: rgba(30, 35, 44, 0.54);
+  color: rgba(30, 35, 44, 0.68);
 }
 
 .deep-auth-page .study-auth-submit {
@@ -2455,7 +2531,7 @@ fieldset.field {
 
 .deep-auth-page .study-auth-footer {
   margin-top: 22px;
-  color: rgba(30, 35, 44, 0.56);
+  color: rgba(30, 35, 44, 0.68);
 }
 
 .deep-auth-page .study-auth-footer a {

@@ -9,10 +9,11 @@ import { DeleteButton } from "@/components/DeleteButton";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string | string[] }>;
 }) {
   const user = await requireUser("STUDENT");
-  const { month } = await searchParams;
+  const query = await searchParams;
+  const month = typeof query.month === "string" ? query.month : undefined;
   const selected =
     month && /^20\d{2}-(0[1-9]|1[0-2])$/.test(month)
       ? month

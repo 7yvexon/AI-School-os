@@ -59,10 +59,13 @@ export function SubmissionForm({
             required
             maxLength={20000}
             readOnly={locked}
+            aria-describedby="submission-content-hint"
             placeholder="과제를 수행한 과정과 결과를 작성해 주세요."
             style={{ minHeight: 180 }}
           />
-          <span className="form-hint">최대 20,000자</span>
+          <span id="submission-content-hint" className="form-hint">
+            최대 20,000자
+          </span>
         </div>
         {!locked && (
           <div

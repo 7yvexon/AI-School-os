@@ -14,7 +14,7 @@ export function AppShell({
   return (
     <div className="app-shell">
       <Sidebar role={role} user={user} />
-      <main className="main">
+      <main id="main-content" className="main" tabIndex={-1}>
         <header className="topbar">
           <MobileNav role={role} />
           <span className="topbar-title">{title}</span>

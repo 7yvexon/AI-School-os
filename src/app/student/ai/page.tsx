@@ -3,9 +3,22 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { dailyLimit, dayKey } from "@/lib/domain";
 import { Empty, Heading } from "@/components/WorkspaceViews";
+import { AiConsentForm } from "@/components/AiConsentForm";
 import { ArrowUpRight, MessageCircle } from "lucide-react";
 export default async function Page() {
   const user = await requireUser("STUDENT");
+  if (!user.aiConsentAt) {
+    return (
+      <>
+        <Heading
+          eyebrow="A LITTLE HELP, A BIG STEP"
+          title="AI 학습 도우미"
+          description="AI 사용에 동의하면 과제별 학습 도우미를 이용할 수 있어요."
+        />
+        <AiConsentForm />
+      </>
+    );
+  }
   const [assignments, usage] = await Promise.all([
     db.assignment.findMany({
       where: {

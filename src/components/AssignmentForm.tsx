@@ -94,15 +94,16 @@ export function AssignmentForm({
           />
         </div>
         <div className="field field-full">
-          <label htmlFor="file">
-            첨부파일{" "}
-            <span className="form-hint">PDF, PNG, JPG, TXT · 5MB 이하</span>
-          </label>
+          <label htmlFor="file">첨부파일</label>
+          <span id="assignment-file-hint" className="form-hint">
+            PDF, PNG, JPG, TXT · 5MB 이하
+          </span>
           <input
             id="file"
             name="file"
             type="file"
             accept="application/pdf,image/png,image/jpeg,text/plain"
+            aria-describedby="assignment-file-hint"
           />
         </div>
       </div>

@@ -2317,7 +2317,8 @@
 
 .deepseek-landing {
   min-height: 100vh;
-  overflow: clip;
+  min-height: 100svh;
+  overflow-x: clip;
   background: #f9f8f8;
   color: #1e232c;
 }
@@ -2371,8 +2372,8 @@
 }
 
 .deep-header__identity > span {
-  color: rgba(30, 35, 44, 0.5);
-  font-size: 10px;
+  color: rgba(30, 35, 44, 0.72);
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.13em;
 }
@@ -2386,7 +2387,7 @@
 
 .deep-header__nav a,
 .deep-header__login {
-  min-height: 38px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   color: rgba(30, 35, 44, 0.7);
@@ -2395,7 +2396,7 @@
 
 .deep-header__nav a:hover,
 .deep-header__login:hover {
-  color: #4176e6;
+  color: #3266d8;
 }
 
 .deep-header__actions {
@@ -2405,7 +2406,7 @@
 }
 
 .deep-header__start {
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 14px;
   display: inline-flex;
   align-items: center;
@@ -2421,7 +2422,7 @@
 .deep-header__start:hover {
   border-color: rgba(65, 118, 230, 0.38);
   background: rgba(255, 255, 255, 0.72);
-  color: #4176e6;
+  color: #3266d8;
 }
 
 .deep-hero {
@@ -2591,7 +2592,7 @@
 }
 
 .deep-news {
-  min-height: 34px;
+  min-height: 44px;
   padding: 7px 12px;
   display: inline-flex;
   align-items: center;
@@ -2659,9 +2660,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
-  color: rgba(30, 35, 44, 0.52);
+  color: rgba(30, 35, 44, 0.72);
   font-size: 10px;
+}
+
+.deep-prompt__top small {
+  color: rgba(30, 35, 44, 0.72);
 }
 
 .deep-prompt__top span {
@@ -2694,8 +2700,14 @@
   line-height: 1.4;
 }
 
+.deep-prompt textarea:focus-visible {
+  outline: 3px solid #3154e6;
+  outline-offset: -1px;
+  border-radius: 6px;
+}
+
 .deep-prompt textarea::placeholder {
-  color: rgba(30, 35, 44, 0.48);
+  color: rgba(30, 35, 44, 0.72);
 }
 
 .deep-prompt__bottom {
@@ -2703,17 +2715,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
 .deep-prompt__modes {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 3px;
 }
 
 .deep-prompt__modes a {
-  min-height: 31px;
+  min-height: 44px;
   padding: 0 11px;
   display: inline-flex;
   align-items: center;
@@ -2727,16 +2741,16 @@
 .deep-prompt__modes a:hover,
 .deep-prompt__modes a.is-active {
   background: rgba(65, 118, 230, 0.12);
-  color: #4176e6;
+  color: #3266d8;
 }
 
 .deep-prompt__send {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #4176e6;
+  background: #3266d8;
   color: #fff;
   transition:
     transform 160ms ease,
@@ -2753,6 +2767,8 @@
   margin-top: 28px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 13px;
 }
 
@@ -2777,7 +2793,7 @@
 
 .deep-hero__primary:hover {
   background: #fff;
-  color: #4176e6;
+  color: #3266d8;
   transform: translateY(-1px);
 }
 
@@ -2798,12 +2814,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: rgba(30, 35, 44, 0.58);
-  font-size: 10px;
+  color: rgba(30, 35, 44, 0.72);
+  font-size: 11px;
 }
 
 .deep-hero__caption svg {
-  color: #248e69;
+  color: #13795b;
 }
 
 .deep-hero__signals {
@@ -2823,8 +2839,8 @@
   border: 1px solid rgba(255, 255, 255, 0.52);
   border-radius: 17px;
   background: rgba(255, 255, 255, 0.18);
-  color: rgba(30, 35, 44, 0.6);
-  font-size: 10px;
+  color: rgba(30, 35, 44, 0.72);
+  font-size: 11px;
 }
 
 .deep-hero__signals svg {
@@ -2859,14 +2875,14 @@
 .deep-footer__identity p {
   max-width: 18ch;
   margin: 0;
-  color: rgba(30, 35, 44, 0.64);
+  color: rgba(30, 35, 44, 0.72);
   font-size: 12px;
   line-height: 1.7;
 }
 
 .deep-footer__identity > span {
-  color: rgba(30, 35, 44, 0.42);
-  font-size: 10px;
+  color: rgba(30, 35, 44, 0.66);
+  font-size: 11px;
 }
 
 .deep-footer__group {
@@ -2882,12 +2898,15 @@
 }
 
 .deep-footer__group a {
-  color: rgba(30, 35, 44, 0.58);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: rgba(30, 35, 44, 0.72);
   font-size: 11px;
 }
 
 .deep-footer__group a:hover {
-  color: #4176e6;
+  color: #3266d8;
 }
 
 .deep-footer__bottom {
@@ -2900,8 +2919,8 @@
   justify-content: space-between;
   gap: 20px;
   border-top: 1px solid rgba(30, 35, 44, 0.1);
-  color: rgba(30, 35, 44, 0.45);
-  font-size: 10px;
+  color: rgba(30, 35, 44, 0.68);
+  font-size: 11px;
 }
 
 @media (max-width: 900px) {
@@ -2970,7 +2989,7 @@
   }
 
   .deep-header__start {
-    min-height: 34px;
+    min-height: 44px;
     padding-inline: 11px;
     font-size: 11px;
   }
@@ -2985,7 +3004,7 @@
   }
 
   .deep-news {
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .deep-hero h1 {
@@ -3034,7 +3053,7 @@
 
   .deep-hero__primary,
   .deep-hero__secondary {
-    min-height: 41px;
+    min-height: 44px;
     padding-inline: 13px;
     font-size: 11px;
   }
@@ -3046,7 +3065,7 @@
   }
 
   .deep-hero__signals span {
-    font-size: 9px;
+    font-size: 11px;
   }
 
   .deep-footer__inner {

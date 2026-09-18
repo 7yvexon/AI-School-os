@@ -5,12 +5,16 @@ import { storyFrame } from "./scroll-story";
 
 /** Original product film, rendered locally. No reference footage is embedded. */
 export function createSchoolFilm(host: HTMLElement, studio = false) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    throw new Error("The school film renderer requires a browser environment");
+  }
+  let disposed = false;
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: false,
-    preserveDrawingBuffer: true,
+    preserveDrawingBuffer: !studio,
   });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
   renderer.shadowMap.enabled = !studio;
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
@@ -102,7 +106,14 @@ export function createSchoolFilm(host: HTMLElement, studio = false) {
   const screen = document.createElement("canvas");
   screen.width = 780;
   screen.height = 1600;
-  const ctx = screen.getContext("2d")!;
+  const context = screen.getContext("2d");
+  if (!context) {
+    env.dispose();
+    renderer.dispose();
+    renderer.domElement.remove();
+    throw new Error("The school film renderer requires a 2D canvas context");
+  }
+  const ctx: CanvasRenderingContext2D = context;
   const texture = new THREE.CanvasTexture(screen);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -146,12 +157,24 @@ export function createSchoolFilm(host: HTMLElement, studio = false) {
   lens.position.set(0.23, 2.38, 0.22);
   phone.add(lens);
   if (!studio) {
+    delete host.dataset.backgroundReady;
+    delete host.dataset.backgroundFailed;
     const backdrop = new THREE.TextureLoader().load(
       "/media/study-background.png",
       (loaded) => {
+        if (disposed) {
+          loaded.dispose();
+          return;
+        }
         loaded.colorSpace = THREE.SRGBColorSpace;
         scene.background = loaded;
         host.dataset.backgroundReady = "true";
+      },
+      undefined,
+      () => {
+        if (disposed) return;
+        host.dataset.backgroundReady = "true";
+        host.dataset.backgroundFailed = "true";
       },
     );
     resources.push(backdrop);
@@ -313,26 +336,32 @@ export function createSchoolFilm(host: HTMLElement, studio = false) {
   }
   const resize = () => {
     const { width, height } = host.getBoundingClientRect();
-    renderer.setSize(width, height, false);
-    camera.aspect = width / Math.max(height, 1);
+    const nextWidth = Math.max(1, width);
+    const nextHeight = Math.max(1, height);
+    renderer.setSize(nextWidth, nextHeight, false);
+    camera.aspect = nextWidth / nextHeight;
     camera.updateProjectionMatrix();
   };
-  const ro = new ResizeObserver(resize);
-  ro.observe(host);
+  const ro =
+    typeof ResizeObserver === "undefined"
+      ? undefined
+      : new ResizeObserver(resize);
+  ro?.observe(host);
+  window.addEventListener("resize", resize, { passive: true });
   resize();
   const target = new THREE.Vector3();
-  let disposed = false;
   function render(seconds: number, scroll = 0) {
     if (disposed) return;
     const frame = storyFrame(scroll);
-    const t = studio ? frame.uiTime : seconds % 20;
+    const safeSeconds = Number.isFinite(seconds) ? seconds : 0;
+    const t = studio ? frame.uiTime : ((safeSeconds % 20) + 20) % 20;
     drawScreen(t);
     const mobile = camera.aspect < 0.8;
     if (studio) {
       phone.position.set(mobile ? 0 : frame.x, frame.y, 0);
       phone.scale.setScalar(frame.scale);
       phone.rotation.set(
-        0.04 + Math.sin(scroll * Math.PI) * 0.08,
+        0.04 + Math.sin(frame.progress * Math.PI) * 0.08,
         frame.yaw * (mobile ? 0.6 : 1),
         frame.roll,
       );
@@ -340,7 +369,11 @@ export function createSchoolFilm(host: HTMLElement, studio = false) {
       target.set(0, 0, 0);
     } else {
       phone.position.set(1.1, -0.02, 0);
-      phone.rotation.set(-0.08, -0.22 + Math.sin(seconds * 0.12) * 0.07, -0.08);
+      phone.rotation.set(
+        -0.08,
+        -0.22 + Math.sin(safeSeconds * 0.12) * 0.07,
+        -0.08,
+      );
       const a = (t / 20) * Math.PI * 2;
       camera.position.set(
         4.4 + Math.sin(a) * 1.3,
@@ -357,8 +390,10 @@ export function createSchoolFilm(host: HTMLElement, studio = false) {
     canvas: renderer.domElement,
     render,
     dispose() {
+      if (disposed) return;
       disposed = true;
-      ro.disconnect();
+      ro?.disconnect();
+      window.removeEventListener("resize", resize);
       resources.forEach((r) => r.dispose());
       env.dispose();
       renderer.dispose();
