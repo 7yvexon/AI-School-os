@@ -133,7 +133,7 @@ export async function completeChat(messages: ChatMessage[]) {
     body: JSON.stringify({
       model: config.model,
       messages: parsedMessages,
-      max_tokens: 1600,
+      max_completion_tokens: 1600,
     }),
     redirect: "error",
     signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),

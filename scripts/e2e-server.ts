@@ -161,10 +161,16 @@ async function main() {
         return;
       }
     }
-    let payload: { messages: { role: string; content: string }[] };
+    let payload: {
+      messages: { role: string; content: string }[];
+      max_completion_tokens?: unknown;
+      max_tokens?: unknown;
+    };
     try {
       payload = JSON.parse(body) as {
         messages: { role: string; content: string }[];
+        max_completion_tokens?: unknown;
+        max_tokens?: unknown;
       };
     } catch {
       res.writeHead(400).end();
@@ -181,6 +187,13 @@ async function main() {
       )
     ) {
       res.writeHead(400).end();
+      return;
+    }
+    if (
+      payload.max_completion_tokens !== 1600 ||
+      Object.hasOwn(payload, "max_tokens")
+    ) {
+      res.writeHead(400).end("Invalid completion limit");
       return;
     }
     if (payload.messages.at(-1)?.content === "FAIL_PROVIDER") {
