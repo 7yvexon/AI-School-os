@@ -136,6 +136,7 @@ fi
 cd "$RELEASE_DIR"
 npm ci --include=dev
 npm run ops:check-env:production
+npm run db:preflight
 npm run db:generate
 npm run db:deploy
 rm -rf "$RELEASE_DIR/.next"
