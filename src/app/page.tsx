@@ -5,10 +5,10 @@ import {
   Check,
   ChevronRight,
   MessageCircle,
-  Search,
   Sparkles,
   Users,
 } from "lucide-react";
+import { LandingPrompt } from "@/components/LandingPrompt";
 import { Logo } from "@/components/Logo";
 import "./landing.css";
 
@@ -52,7 +52,7 @@ const footerGroups = [
     title: "도움말",
     links: [
       ["서비스 안내", "#prompt"],
-      ["문의하기", "mailto:service@aischoolos.local"],
+      ["GitHub에서 문의하기", "https://github.com/7yvexon/AI-School-os/issues"],
       ["개인정보 보호", "#footer"],
     ],
   },
@@ -115,39 +115,7 @@ export default function Home() {
               AI School OS가 지금 가능한 다음 한 걸음을 함께 찾습니다.
             </p>
 
-            <div className="deep-prompt" id="prompt">
-              <div className="deep-prompt__top">
-                <span>
-                  <i aria-hidden="true" />
-                  AI School OS
-                </span>
-                <small>학생과 선생님을 위한 학습 공간</small>
-              </div>
-              <textarea
-                aria-label="AI에게 시작할 일 입력"
-                readOnly
-                placeholder="예: 오늘 30분 동안 탐구 과제를 어디서부터 시작할까?"
-              />
-              <div className="deep-prompt__bottom">
-                <div className="deep-prompt__modes" aria-label="학습 모드">
-                  <Link className="is-active" href="/login">
-                    <MessageCircle size={14} aria-hidden="true" />
-                    AI 학습
-                  </Link>
-                  <Link href="/login">
-                    <Search size={14} aria-hidden="true" />
-                    과제 정리
-                  </Link>
-                </div>
-                <Link
-                  className="deep-prompt__send"
-                  href="/login"
-                  aria-label="AI 학습 시작하기"
-                >
-                  <ArrowUpRight size={17} aria-hidden="true" />
-                </Link>
-              </div>
-            </div>
+            <LandingPrompt />
 
             <div className="deep-hero__actions">
               <Link className="deep-hero__primary" href="/register">
@@ -190,11 +158,17 @@ export default function Home() {
           {footerGroups.map((group) => (
             <div className="deep-footer__group" key={group.title}>
               <strong>{group.title}</strong>
-              {group.links.map(([label, href]) => (
-                <Link href={href} key={label}>
-                  {label}
-                </Link>
-              ))}
+              {group.links.map(([label, href]) =>
+                href.startsWith("http") ? (
+                  <a href={href} key={label} target="_blank" rel="noreferrer">
+                    {label}
+                  </a>
+                ) : (
+                  <Link href={href} key={label}>
+                    {label}
+                  </Link>
+                ),
+              )}
             </div>
           ))}
         </div>

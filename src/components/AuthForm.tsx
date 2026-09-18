@@ -2,11 +2,31 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, useSyncExternalStore } from "react";
 import { authenticate, type ActionState } from "@/app/actions";
 import { ActionMessage } from "./ActionMessage";
 import { Logo } from "./Logo";
 import { SubmitButton } from "./SubmitButton";
+
+const emptySubscription = () => () => {};
+const getServerPrompt = () => "";
+const getClientPrompt = () => {
+  try {
+    return window.sessionStorage.getItem("ai-school-prompt") ?? "";
+  } catch {
+    return "";
+  }
+};
+const getClientPromptMode = () => {
+  try {
+    return window.sessionStorage.getItem("ai-school-prompt-mode") ===
+      "과제 정리"
+      ? "과제 정리"
+      : "AI 학습";
+  } catch {
+    return "AI 학습";
+  }
+};
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [state, action] = useActionState<ActionState, FormData>(
@@ -14,6 +34,16 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     {},
   );
   const register = mode === "register";
+  const pendingPrompt = useSyncExternalStore(
+    emptySubscription,
+    getClientPrompt,
+    getServerPrompt,
+  );
+  const pendingPromptMode = useSyncExternalStore(
+    emptySubscription,
+    getClientPromptMode,
+    () => "AI 학습",
+  );
 
   return (
     <main
@@ -91,7 +121,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                   <i />
                   TODAY&apos;S FLOW
                 </span>
-                <small>09.17</small>
+                <small>오늘</small>
               </div>
               <strong>
                 오늘 할 일 중
@@ -100,13 +130,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               </strong>
               <div className="study-auth-activity-line">
                 <span />
-                <p>주제 탐구 보고서</p>
+                <p>과제 정리</p>
                 <small>먼저</small>
               </div>
               <div className="study-auth-activity-line">
                 <span />
-                <p>영어 발표 준비</p>
-                <small>진행 중</small>
+                <p>수업 준비</p>
+                <small>이어가기</small>
               </div>
             </div>
           )}
@@ -135,6 +165,17 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 : "계정에 로그인해 오늘의 할 일을 확인하세요"}
             </p>
           </div>
+
+          {pendingPrompt && (
+            <div className="study-auth-intent" role="status">
+              <span>방금 입력한 시작 문장</span>
+              <p>{pendingPrompt}</p>
+              <small>
+                로그인 후 {pendingPromptMode} 흐름에서 다시 붙여넣어 시작할 수
+                있어요.
+              </small>
+            </div>
+          )}
 
           <form action={action} className="study-auth-form">
             <input type="hidden" name="mode" value={mode} />

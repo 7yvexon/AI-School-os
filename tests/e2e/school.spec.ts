@@ -25,6 +25,29 @@ async function register(
     new RegExp(`/${role === "학생" ? "student" : "teacher"}/dashboard`),
   );
 }
+
+test("landing prompt accepts input and carries the intent to login", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const prompt = page.getByLabel("AI에게 시작할 일 입력");
+  const promptText = "오늘 탐구 과제를 세 단계로 나누고 싶어요.";
+
+  await prompt.fill(promptText);
+  await page.getByRole("button", { name: "과제 정리" }).click();
+  await expect(page.getByRole("button", { name: "과제 정리" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(prompt).toHaveValue(promptText);
+  await page
+    .getByRole("button", { name: "입력한 문장으로 로그인하기" })
+    .click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByText("방금 입력한 시작 문장")).toBeVisible();
+  await expect(page.getByText(promptText)).toBeVisible();
+});
+
 test("teacher and student full workflow, scoped access, AI persistence and quota", async ({
   browser,
 }) => {
