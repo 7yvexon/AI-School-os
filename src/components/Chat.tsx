@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Send } from "lucide-react";
-type Message = { id: string; role: string; content: string };
+import { readChatResponse, type ChatApiMessage } from "@/lib/chat-api";
+type Message = ChatApiMessage;
 export function Chat({
   assignmentId,
   initialMessages,
@@ -34,12 +35,13 @@ export function Chat({
     try {
       const response = await fetch("/api/ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ assignmentId, message: content }),
       });
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "답변을 불러오지 못했습니다.");
+      const data = await readChatResponse(response);
       setMessages((previous) => [
         ...previous,
         { id: crypto.randomUUID(), role: "user", content },
