@@ -421,6 +421,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await teacher.goto("/register");
   await teacher.getByLabel("이름", { exact: true }).fill("중복 가입 시도");
   await teacher.getByLabel("이메일").fill(`teacher-${stamp}@example.com`);
+  await teacher.getByLabel("전화번호").fill("010-0000-0000");
   await teacher.getByLabel("비밀번호").fill(e2eTestPassword);
   await teacher.getByRole("button", { name: "회원가입" }).click();
   await expect(teacher.locator(".alert-error")).toContainText(

@@ -73,7 +73,7 @@ Cloudflare One의 Tunnels & Mesh에서 사용할 터널을 열고 Published appl
 
 ## 환경변수
 
-기본 운영값은 `<config-root>/app.env`에 생성됩니다. `APP_URL`, `TRUST_PROXY`, `SERVER_ACTION_ALLOWED_ORIGINS`는 공개 호스트에 맞춰 설정하고, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` 중 하나라도 비어 있으면 AI 기능은 비활성화된 상태로 핵심 학습 기능을 사용할 수 있습니다. 운영의 `AI_BASE_URL`은 HTTPS를 사용해야 합니다. 첨부파일을 사용하려면 `CLAMAV_SOCKET` 또는 `CLAMAV_HOST`·`CLAMAV_PORT`를 설정하고, scanner가 응답하지 않으면 파일은 격리 상태로 남습니다. 실제 AI·ClamAV를 연결할 때는 비밀값과 endpoint를 환경 파일에만 넣고 `<service-name>` 서비스를 재시작합니다.
+기본 운영값은 `<config-root>/app.env`에 생성됩니다. 환경 파일의 `NODE_ENV`는 반드시 `production`이어야 하며 배포 스크립트가 이 값을 확인합니다. `APP_URL`, `TRUST_PROXY`, `SERVER_ACTION_ALLOWED_ORIGINS`는 공개 호스트에 맞춰 설정하고, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` 중 하나라도 비어 있으면 AI 기능은 비활성화된 상태로 핵심 학습 기능을 사용할 수 있습니다. 운영의 `AI_BASE_URL`은 HTTPS를 사용해야 합니다. 첨부파일을 사용하려면 `CLAMAV_SOCKET` 또는 `CLAMAV_HOST`·`CLAMAV_PORT`를 설정하고, scanner가 응답하지 않으면 파일은 격리 상태로 남습니다. 실제 AI·ClamAV를 연결할 때는 비밀값과 endpoint를 환경 파일에만 넣고 `<service-name>` 서비스를 재시작합니다.
 
 학생과 선생님 모두 회원가입 화면에서 역할을 선택할 수 있고 전화번호를 필수로 입력합니다. 이메일 소유권과 전화번호 진위는 자동 검증하지 않으며, 교사 가입은 승인 대기 상태로 저장됩니다. 실제 학교 운영에서는 관리자가 대시보드·DB를 확인해 비정상 계정을 수동 정리해야 합니다.
 

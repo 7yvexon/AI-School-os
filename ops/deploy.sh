@@ -53,6 +53,7 @@ if [ "$APP_ROOT" = "/" ] || [ "$CONFIG_ROOT" = "/" ] ||
   echo "APP_ROOT와 releases 디렉터리가 필요합니다." >&2
   exit 1
 fi
+file_node_env=""
 if [ -z "${ENV_FILE+x}" ]; then
   ENV_FILE="$CONFIG_ROOT/app.env"
 fi
@@ -122,10 +123,17 @@ load_environment() {
     esac
     printf -v "$key" '%s' "$value"
     export "$key"
+    if [ "$key" = "NODE_ENV" ]; then
+      file_node_env="$value"
+    fi
   done < "$ENV_FILE"
 }
 
 load_environment
+if [ "$file_node_env" != "production" ]; then
+  echo "환경 파일의 NODE_ENV는 production이어야 합니다." >&2
+  exit 1
+fi
 export NODE_ENV=production
 
 HEALTH_URL=${HEALTH_URL:-http://127.0.0.1:${app_port_number}/api/health}

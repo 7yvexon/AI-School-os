@@ -22,6 +22,7 @@ import {
   MAX_ATTACHMENT_BYTES_PER_TEACHER,
   MAX_CLASSES_PER_TEACHER,
   MAX_ATTACHMENTS_PER_CLASS,
+  MAX_PERSONAL_EVENTS_PER_USER,
 } from "@/lib/limits";
 const text = (max: number) =>
   z.string().trim().min(1, "필수 항목을 입력해 주세요.").max(max);
@@ -224,6 +225,7 @@ export async function mutate(
 ): Promise<ActionState> {
   const user = await requireUser();
   let target = "";
+  let successMessage = "저장했습니다.";
   try {
     const ip = requestIp(await headers());
     await rateLimit(`write:ip:${hashIdentifier(ip)}`, 200, 60000);
@@ -365,12 +367,18 @@ export async function mutate(
           data,
         };
       }
+      const attachmentScan = attachment
+        ? await scanAttachmentData(attachment.data)
+        : null;
+      if (attachmentScan?.status === "INFECTED")
+        return {
+          error: "안전하지 않은 첨부파일로 판단되어 업로드할 수 없습니다.",
+        };
       const result = await db.$transaction(async (tx) => {
         const a = id
           ? await tx.assignment.update({ where: { id }, data })
           : await tx.assignment.create({ data: { ...data, classId } });
-        let createdAttachment: { id: string } | null = null;
-        if (attachment) {
+        if (attachment && attachmentScan) {
           await tx.$queryRaw`
             SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE
           `;
@@ -406,41 +414,32 @@ export async function mutate(
             throw new ActionError(
               "선생님별 첨부파일 총용량 한도에 도달했습니다.",
             );
-          createdAttachment = await tx.attachment.create({
-            data: { ...attachment, assignmentId: a.id },
+          await tx.attachment.create({
+            data: {
+              ...attachment,
+              assignmentId: a.id,
+              scanStatus:
+                attachmentScan.status === "CLEAN"
+                  ? "CLEAN"
+                  : attachmentScan.status === "ERROR"
+                    ? "SCAN_ERROR"
+                    : "QUARANTINED",
+              scannedAt:
+                attachmentScan.status === "UNAVAILABLE" ? null : new Date(),
+              scanEngine: attachmentScan.engine,
+            },
           });
         }
-        return { assignment: a, attachment: createdAttachment };
+        return a;
       });
-      if (result.attachment && attachment) {
-        const scan = await scanAttachmentData(attachment.data);
-        const scanStatus =
-          scan.status === "CLEAN"
-            ? "CLEAN"
-            : scan.status === "INFECTED"
-              ? "INFECTED"
-              : scan.status === "ERROR"
-                ? "SCAN_ERROR"
-                : "QUARANTINED";
-        await db.attachment.update({
-          where: { id: result.attachment.id },
-          data: {
-            scanStatus,
-            scannedAt: scan.status === "UNAVAILABLE" ? null : new Date(),
-            scanEngine: scan.engine,
-          },
-        });
-        if (scan.status === "INFECTED")
-          return {
-            error: "안전하지 않은 첨부파일로 판단되어 업로드할 수 없습니다.",
-          };
-        if (scan.status !== "CLEAN")
-          return {
-            error:
-              "첨부파일 검사를 완료하지 못했습니다. 관리자에게 문의해 주세요.",
-          };
+      if (attachmentScan && attachmentScan.status !== "CLEAN") {
+        successMessage =
+          attachmentScan.status === "UNAVAILABLE"
+            ? "과제를 저장했습니다. 첨부파일은 검사 서비스가 없어 검사 대기 상태로 보관되었습니다."
+            : "과제를 저장했습니다. 첨부파일 검사에 실패해 검사 대기 상태로 보관되었습니다.";
+      } else {
+        target = `/teacher/assignments/${result.id}`;
       }
-      target = `/teacher/assignments/${result.assignment.id}`;
     } else if (op === "delete" || op === "assignment-archive") {
       const id = text(50).parse(form.get("id"));
       const a = await accessibleAssignment(id, user, { includeArchived: true });
@@ -661,7 +660,19 @@ export async function mutate(
     } else if (op === "event") {
       if (user.role !== "STUDENT") throw Error();
       const data = z.object({ title: text(150), dueAt: due }).parse(raw);
-      await db.personalEvent.create({ data: { ...data, userId: user.id } });
+      await db.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE
+        `;
+        const count = await tx.personalEvent.count({
+          where: { userId: user.id },
+        });
+        if (count >= MAX_PERSONAL_EVENTS_PER_USER)
+          throw new ActionError(
+            `개인 일정은 최대 ${MAX_PERSONAL_EVENTS_PER_USER}개까지 저장할 수 있습니다.`,
+          );
+        await tx.personalEvent.create({ data: { ...data, userId: user.id } });
+      });
     } else if (op === "event-delete") {
       if (user.role !== "STUDENT") throw Error();
       await db.personalEvent.deleteMany({
@@ -673,5 +684,5 @@ export async function mutate(
     return { error: message(e) };
   }
   if (target) redirect(target);
-  return { success: "저장했습니다." };
+  return { success: successMessage };
 }

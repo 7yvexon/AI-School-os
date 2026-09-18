@@ -16,7 +16,8 @@ export default async function FilmRenderPage({
   }>;
 }) {
   const params = await searchParams;
-  if (params["film-render"] !== "1") notFound();
+  if (process.env.NODE_ENV === "production" || params["film-render"] !== "1")
+    notFound();
 
   return (
     <main className="film-render-page">

@@ -23,11 +23,7 @@ export function AssignmentForm({
     ? new Date(assignment.dueAt).toISOString().slice(0, 10)
     : "";
   return (
-    <form
-      action={action}
-      className="card card-pad"
-      encType="multipart/form-data"
-    >
+    <form action={action} className="card card-pad">
       <input type="hidden" name="op" value="assignment" />
       <input type="hidden" name="classId" value={classId} />
       {assignment?.id && (
