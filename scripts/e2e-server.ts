@@ -261,7 +261,7 @@ async function main() {
   await cleanupClient.end();
   const nextProcess = spawn(
     process.execPath,
-    ["node_modules/next/dist/bin/next", "start", "-p", String(e2ePort)],
+    ["node_modules/next/dist/bin/next", "dev", "-p", String(e2ePort)],
     { env, stdio: "inherit", windowsHide: true },
   );
   next = nextProcess;

@@ -40,6 +40,13 @@ enum AIMessageRole {
   assistant
 }
 
+enum AttachmentScanStatus {
+  QUARANTINED
+  CLEAN
+  INFECTED
+  SCAN_ERROR
+}
+
 model User {
   id                String               @id @default(cuid())
   email             String               @unique
@@ -50,6 +57,7 @@ model User {
   school            String               @default("")
   grade             String               @default("")
   classroom         String               @default("")
+  phone             String               @default("")
   createdAt         DateTime             @default(now())
   sessions          Session[]
   classes           Class[]
@@ -217,12 +225,15 @@ model PersonalEvent {
 }
 
 model Attachment {
-  id           String     @id @default(cuid())
+  id           String               @id @default(cuid())
   assignmentId String
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  assignment   Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   name         String
   mime         String
   size         Int
+  scanStatus   AttachmentScanStatus @default(QUARANTINED)
+  scannedAt    DateTime?
+  scanEngine   String?
   // SQL CHECK enforces 1..5 MiB, including writes outside the upload action.
   data         Bytes
 

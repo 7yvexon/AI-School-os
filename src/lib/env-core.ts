@@ -5,6 +5,8 @@ export type RuntimeEnvSource = {
   TRUST_PROXY?: string;
   SERVER_ACTION_ALLOWED_ORIGINS?: string;
   NODE_ENV?: string;
+  AI_ALLOW_INSECURE_HTTP_LOCALHOST?: string;
+  E2E_TEST_MODE?: string;
 };
 
 export type RuntimeConfig = {
@@ -142,6 +144,16 @@ export function parseRuntimeConfig(
     );
   if (trustProxy !== "true" && trustProxy !== "false")
     issues.push('TRUST_PROXY는 "true" 또는 "false"여야 합니다.');
+  if (isProduction && trustProxy !== "true")
+    issues.push(
+      "운영 환경은 실제 클라이언트 IP를 전달하는 신뢰 프록시 뒤에서 실행해야 합니다.",
+    );
+  if (
+    isProduction &&
+    (env.AI_ALLOW_INSECURE_HTTP_LOCALHOST === "true" ||
+      env.E2E_TEST_MODE === "true")
+  )
+    issues.push("E2E 전용 설정은 운영 환경에서 사용할 수 없습니다.");
   if (!serverActionAllowedOrigins.every(isAllowedOrigin))
     issues.push(
       "SERVER_ACTION_ALLOWED_ORIGINS는 도메인 또는 와일드카드 도메인의 쉼표 목록이어야 합니다.",

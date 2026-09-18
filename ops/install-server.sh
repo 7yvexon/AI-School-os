@@ -151,6 +151,9 @@ SQL
       printf '%s\n' 'AI_API_KEY='
       printf '%s\n' 'AI_BASE_URL=https://api.openai.com/v1'
       printf '%s\n' 'AI_MODEL='
+      printf '%s\n' 'CLAMAV_SOCKET='
+      printf '%s\n' 'CLAMAV_HOST='
+      printf '%s\n' 'CLAMAV_PORT=3310'
     } >"$ENV_FILE"
   )
   chown root:"$SERVICE_USER" "$ENV_FILE"

@@ -18,6 +18,7 @@ async function seed() {
       role: "TEACHER",
       passwordHash,
       school: "우리학교",
+      phone: "010-0000-0000",
       teacherApprovedAt: new Date(),
       aiConsentAt: null,
     },
@@ -27,6 +28,7 @@ async function seed() {
       role: "TEACHER",
       passwordHash,
       school: "우리학교",
+      phone: "010-0000-0000",
       teacherApprovedAt: new Date(),
     },
   });
@@ -39,6 +41,7 @@ async function seed() {
       school: "우리학교",
       grade: "2",
       classroom: "3",
+      phone: "010-0000-0000",
       teacherApprovedAt: null,
       aiConsentAt: null,
     },
@@ -50,6 +53,7 @@ async function seed() {
       school: "우리학교",
       grade: "2",
       classroom: "3",
+      phone: "010-0000-0000",
     },
   });
   const sampleClassCode = "BSS-7FBB881CA2";

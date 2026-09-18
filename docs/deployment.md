@@ -53,7 +53,7 @@ SERVICE_NAME=your-app \
 bash ops/deploy.sh /srv/your-app/releases/<release-id>
 ```
 
-운영 DB를 변경하기 전에는 새 릴리스에서 `npm run db:preflight`를 실행해 기존 데이터가 새 제약을 만족하는지 확인합니다. 점검이 통과한 뒤 스크립트는 `npm ci` → Prisma Client 생성 → 마이그레이션 적용 → 프로덕션 빌드 → `current` 심볼릭 링크 교체 → systemd 재시작 → `/api/health` 확인 순서로 동작합니다. health check가 실패하면 직전 릴리스 링크로 되돌린 뒤 서비스를 재시작합니다. 릴리스 디렉터리는 자동 삭제하지 않으므로 복구가 필요할 때까지 보존합니다.
+운영 DB를 변경하기 전에는 새 릴리스에서 `npm run db:preflight`를 실행해 기존 데이터가 새 제약을 만족하는지 확인합니다. 점검이 통과한 뒤 스크립트는 전용 서비스 사용자로 `npm ci --ignore-scripts` → Prisma Client 생성 → 마이그레이션 적용 → 프로덕션 빌드 → `current` 심볼릭 링크 교체 → systemd 재시작 → `/api/health` 확인 순서로 동작합니다. health check가 실패하면 직전 릴리스 링크로 되돌린 뒤 서비스를 재시작합니다. 릴리스 디렉터리는 자동 삭제하지 않으므로 복구가 필요할 때까지 보존합니다.
 
 소스 복사 시 `.git`, `.local`, `node_modules`, `.next`, `test-results`, `AGENTS.local.md` 같은 저장소·로컬 산출물과 내부 메모리는 릴리스에 넣지 않습니다.
 
@@ -73,9 +73,9 @@ Cloudflare One의 Tunnels & Mesh에서 사용할 터널을 열고 Published appl
 
 ## 환경변수
 
-기본 운영값은 `<config-root>/app.env`에 생성됩니다. `APP_URL`, `TRUST_PROXY`, `SERVER_ACTION_ALLOWED_ORIGINS`는 공개 호스트에 맞춰 설정하고, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` 중 하나라도 비어 있으면 AI 기능은 비활성화된 상태로 핵심 학습 기능을 사용할 수 있습니다. 운영의 `AI_BASE_URL`은 HTTPS를 사용해야 하며 `AI_ALLOW_INSECURE_HTTP_LOCALHOST`는 설정하지 않습니다. 실제 AI를 연결할 때는 API 키를 환경 파일에만 넣고 `<service-name>` 서비스를 재시작합니다.
+기본 운영값은 `<config-root>/app.env`에 생성됩니다. `APP_URL`, `TRUST_PROXY`, `SERVER_ACTION_ALLOWED_ORIGINS`는 공개 호스트에 맞춰 설정하고, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` 중 하나라도 비어 있으면 AI 기능은 비활성화된 상태로 핵심 학습 기능을 사용할 수 있습니다. 운영의 `AI_BASE_URL`은 HTTPS를 사용해야 합니다. 첨부파일을 사용하려면 `CLAMAV_SOCKET` 또는 `CLAMAV_HOST`·`CLAMAV_PORT`를 설정하고, scanner가 응답하지 않으면 파일은 격리 상태로 남습니다. 실제 AI·ClamAV를 연결할 때는 비밀값과 endpoint를 환경 파일에만 넣고 `<service-name>` 서비스를 재시작합니다.
 
-학생과 선생님 모두 회원가입 화면에서 역할을 선택해 가입합니다. 현재 학교 이메일 인증이나 관리자 승인 절차는 없으므로 실제 학교 운영 전에는 공개 교사 가입을 보완하는 인증 흐름을 추가해야 합니다.
+학생과 선생님 모두 회원가입 화면에서 역할을 선택할 수 있고 전화번호를 필수로 입력합니다. 이메일 소유권과 전화번호 진위는 자동 검증하지 않으며, 교사 가입은 승인 대기 상태로 저장됩니다. 실제 학교 운영에서는 관리자가 대시보드·DB를 확인해 비정상 계정을 수동 정리해야 합니다.
 
 ## 점검 명령
 

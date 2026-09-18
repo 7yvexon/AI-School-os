@@ -162,19 +162,23 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 배포 전에 `NODE_ENV=production`으로 실행 환경을 선택한 뒤 `npm run ops:check-env`를 실행하면 데이터베이스 URL, 인증 비밀값, 외부 URL, 프록시 설정을 값 자체를 출력하지 않고 확인할 수 있습니다. 이 명령은 서버를 시작하지 않으므로 배포 파이프라인의 사전 점검 단계에서 사용할 수 있습니다. PowerShell에서는 `$env:NODE_ENV = "production"; npm run ops:check-env`, macOS·Linux에서는 `NODE_ENV=production npm run ops:check-env`를 사용합니다.
 
-| 변수                               | 필수       | 설명                                                                                             |
-| ---------------------------------- | ---------- | ------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                     | 예         | PostgreSQL 연결 문자열. `.env.example`의 자리표시자를 실제 개발 DB 값으로 교체합니다.            |
-| `AUTH_SECRET`                      | 예         | 최소 32자 무작위 비밀값. 변경하면 기존 세션이 무효화됩니다.                                      |
-| `APP_URL`                          | 예         | 외부 접속 원본 URL. 로컬 기본값은 `http://localhost:3000`이며 AI API Origin 검사에 사용합니다.   |
-| `TRUST_PROXY`                      | 배포 시    | `true`일 때 신뢰하는 프록시의 `X-Forwarded-For`·`X-Real-IP`를 IP 제한에 사용합니다.              |
-| `SERVER_ACTION_ALLOWED_ORIGINS`    | 배포 시    | 프록시가 사용하는 Server Action 허용 호스트를 쉼표로 구분해 입력합니다.                          |
-| `AI_API_KEY`                       | AI 사용 시 | OpenAI 호환 제공자의 API 키. 서버에서만 읽습니다.                                                |
-| `AI_BASE_URL`                      | AI 사용 시 | `/chat/completions` 앞까지의 URL. 운영에서는 HTTPS를 사용합니다. 예: `https://api.openai.com/v1` |
-| `AI_MODEL`                         | AI 사용 시 | 제공자가 지원하는 모델 ID                                                                        |
-| `AI_ALLOW_INSECURE_HTTP_LOCALHOST` | 테스트 시  | `true`일 때 로컬호스트 AI 픽스처의 HTTP만 허용합니다. 운영 환경에서는 설정하지 않습니다.         |
+| 변수                               | 필수         | 설명                                                                                                       |
+| ---------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                     | 예           | PostgreSQL 연결 문자열. `.env.example`의 자리표시자를 실제 개발 DB 값으로 교체합니다.                      |
+| `AUTH_SECRET`                      | 예           | 최소 32자 무작위 비밀값. 변경하면 기존 세션이 무효화됩니다.                                                |
+| `APP_URL`                          | 예           | 외부 접속 원본 URL. 로컬 기본값은 `http://localhost:3000`이며 AI API Origin 검사에 사용합니다.             |
+| `TRUST_PROXY`                      | 배포 시      | 운영에서는 `true`여야 하며, 신뢰하는 프록시가 정리한 `X-Forwarded-For`·`X-Real-IP`를 IP 제한에 사용합니다. |
+| `SERVER_ACTION_ALLOWED_ORIGINS`    | 배포 시      | 프록시가 사용하는 Server Action 허용 호스트를 쉼표로 구분해 입력합니다.                                    |
+| `AI_API_KEY`                       | AI 사용 시   | OpenAI 호환 제공자의 API 키. 서버에서만 읽습니다.                                                          |
+| `AI_BASE_URL`                      | AI 사용 시   | `/chat/completions` 앞까지의 URL. 운영에서는 HTTPS를 사용합니다. 예: `https://api.openai.com/v1`           |
+| `AI_MODEL`                         | AI 사용 시   | 제공자가 지원하는 모델 ID                                                                                  |
+| `AI_ALLOW_INSECURE_HTTP_LOCALHOST` | 테스트 시    | 비운영 E2E의 로컬호스트 AI 픽스처에만 HTTP를 허용합니다. 운영 환경에서는 설정하지 않습니다.                |
+| `CLAMAV_SOCKET` / `CLAMAV_HOST`    | 첨부 사용 시 | ClamAV Unix socket 또는 TCP 호스트입니다. 둘 다 없으면 첨부파일은 격리 상태로 남습니다.                    |
+| `CLAMAV_PORT`                      | 첨부 사용 시 | ClamAV TCP 포트이며 기본값은 `3310`입니다.                                                                 |
 
-AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 뒤 학생 과제 상세에서 AI 사용에 동의하고 질문합니다. 서버는 `POST {AI_BASE_URL}/chat/completions`로 `{ model, messages, max_tokens: 1600 }`을 보내는 비스트리밍 어댑터를 사용합니다. 다른 응답 형식은 [AI 어댑터](src/lib/ai.ts)에서 조정합니다.
+AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 뒤 학생 과제 상세에서 AI 사용에 동의하고 질문합니다. 서버는 사용자별 일일 한도와 서비스 전체 기본 1,000회/일 상한을 함께 적용하며, `POST {AI_BASE_URL}/chat/completions`로 `{ model, messages, max_tokens: 1600 }`을 보내는 비스트리밍 어댑터를 사용합니다. 다른 응답 형식은 [AI 어댑터](src/lib/ai.ts)에서 조정합니다.
+
+유효성·접근 권한을 통과해 예약된 AI 질문 시도는 외부 제공자의 오류나 시간 초과가 발생해도 사용량을 복구하지 않습니다. 제공자 비용과 로컬 사용량이 서로 어긋나 quota를 우회하지 않도록 보수적으로 계산합니다.
 
 학생의 질문에는 학년 정보, 과제 문맥, 최근 대화가 포함되어 사용자가 동의한 뒤 선택한 외부 AI 제공자로 전송될 수 있습니다. 반·이름·학교·이메일·비밀번호·세션은 보내지 않습니다. 설정에서 동의를 철회하거나 저장된 AI 대화 기록을 삭제할 수 있지만, 외부 제공자가 이미 수신한 데이터의 삭제는 해당 제공자의 정책을 따릅니다.
 
@@ -203,7 +207,7 @@ AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 
 
 </details>
 
-플랜을 변경하는 로그인 사용자용 API나 결제 연동은 없습니다. 개발환경에서만 `npm run dev:plan -- student@example.com PRO` 또는 `npm run dev:plan -- student@example.com FREE`로 플랜별 화면과 한도를 확인할 수 있습니다. 교사 회원가입은 현재 자동 승인되며, DB 운영자가 기존 계정의 승인 상태를 보정해야 할 때만 `npm run teacher:approve -- teacher@example.com`을 실행합니다.
+플랜을 변경하는 로그인 사용자용 API나 결제 연동은 없습니다. 개발환경에서만 `npm run dev:plan -- student@example.com PRO` 또는 `npm run dev:plan -- student@example.com FREE`로 플랜별 화면과 한도를 확인할 수 있습니다. 신규 회원가입은 이메일을 별도로 인증하지 않고 전화번호를 필수 입력값으로 받습니다. 교사 계정은 관리자 승인 대기 상태로 저장되며, DB 운영자가 승인할 때는 `npm run teacher:approve -- teacher@example.com`을 실행합니다. 전화번호·계정 진위 확인과 비정상 계정 삭제는 관리자 운영 절차로 처리합니다.
 
 ## 개발 명령과 테스트
 
@@ -224,6 +228,7 @@ AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 
 | `npm run db:preflight`                         | 무변경 migration 데이터 사전 점검           |
 | `npm run db:seed`                              | 개발 샘플 데이터 생성/갱신                  |
 | `npm run db:cleanup`                           | 만료 세션·요청 제한 데이터 배치 정리        |
+| `npm run attachments:scan`                     | 격리·검사 오류 첨부파일 재검사              |
 | `npm run ops:check-env`                        | 운영 환경변수 사전 점검                     |
 | `npm run ops:check-env:production`             | 운영 모드 환경변수 사전 점검                |
 | `npm run teacher:approve -- email`             | DB 운영자용 기존 교사 승인 상태 보정        |
@@ -244,7 +249,7 @@ npm run build
 npm run test:e2e
 ```
 
-E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres-v2`), 기본 `3100` 포트의 빌드된 Next.js 서버, 그리고 loopback에서 실행되는 결정적 로컬 AI 픽스처를 사용합니다. AI 픽스처 포트는 기본적으로 비어 있는 포트를 자동 할당하며 `E2E_AI_MOCK_PORT`로 고정할 수 있습니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다. E2E에서는 학생·선생님 역할을 모두 초대코드 없이 가입합니다.
+E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres-v2`), 기본 `3100` 포트의 빌드된 Next.js 서버, 그리고 loopback에서 실행되는 결정적 로컬 AI 픽스처를 사용합니다. AI 픽스처 포트는 기본적으로 비어 있는 포트를 자동 할당하며 `E2E_AI_MOCK_PORT`로 고정할 수 있습니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다. E2E에서는 전화번호를 포함한 일반 가입 흐름을 그대로 사용합니다.
 
 `AI_ALLOW_INSECURE_HTTP_LOCALHOST=true`는 E2E 실행기가 로컬 AI 픽스처를 사용할 때만 주입합니다. 개발자가 외부 AI를 연결할 때는 HTTPS `AI_BASE_URL`을 사용하고 이 변수를 직접 설정하지 마세요.
 
@@ -266,14 +271,14 @@ tests/                   도메인 테스트·Playwright E2E
 ## 보안과 운영 범위
 
 - bcrypt(cost 12) 비밀번호 해시, UTF-8 72바이트 제한, 256비트 무작위 세션 토큰과 7일 만료, HttpOnly·SameSite=Lax 쿠키를 사용합니다. 운영 모드에서는 Secure 쿠키와 HTTPS가 필요합니다.
-- 모든 서버 작업에서 역할·클래스 소속·소유권을 검사하고, Next.js Server Actions의 허용 Origin 검사와 AI API의 `APP_URL` 일치 검사를 사용합니다. `SERVER_ACTION_ALLOWED_ORIGINS`는 빌드 시 허용할 프록시 호스트 목록으로 반영되므로 환경변수를 바꾼 뒤 다시 빌드해야 합니다. 학생과 선생님은 회원가입 시 역할을 선택할 수 있으며, 별도의 학교 이메일 인증이나 관리자 승인 절차는 아직 제공하지 않습니다.
+- 모든 서버 작업에서 역할·클래스 소속·소유권을 검사하고, Next.js Server Actions의 허용 Origin 검사와 AI API의 `APP_URL` 일치 검사를 사용합니다. `SERVER_ACTION_ALLOWED_ORIGINS`는 빌드 시 허용할 프록시 호스트 목록으로 반영되므로 환경변수를 바꾼 뒤 다시 빌드해야 합니다. 이메일 소유권이나 전화번호 진위는 자동 검증하지 않으며, 교사 가입은 승인 대기 상태입니다.
 - Zod 서버 검증, Prisma 매개변수 쿼리, React 텍스트 렌더링을 사용합니다. 사용자 HTML을 실행하지 않습니다.
-- 첨부파일은 DB에 저장하고 파일당 5MiB·클래스별 50개·50MiB를 제한하며 `application/octet-stream`·`nosniff`로 다운로드합니다. 악성코드 검사는 아직 제공하지 않습니다.
-- 인증·쓰기·AI·클래스 참여 요청에 IP·계정·실패한 이메일·IP 조합 기반 제한을 적용합니다. 운영에서는 신뢰 프록시 설정, 모니터링과 백업을 함께 구성하세요.
+- 첨부파일은 DB에 저장하고 파일당 5MiB·클래스별 50개·50MiB·선생님별 500MiB를 제한합니다. ClamAV 검사에 통과한 `CLEAN` 파일만 `application/octet-stream`·`nosniff`로 다운로드하며, scanner가 없거나 오류가 난 파일은 격리 상태로 차단합니다.
+- 인증·쓰기·AI·클래스 참여 요청에 IP·계정·이메일·실패한 이메일·IP 조합 기반 제한을 적용하고, AI에는 서비스 전체 일일 호출 상한도 적용합니다. 운영에서는 신뢰 프록시 설정, 모니터링과 백업을 함께 구성하세요.
 - `GET /api/health`는 환경 설정과 PostgreSQL 연결을 확인하는 준비 상태 엔드포인트입니다. 두 항목이 모두 정상이면 200, 하나라도 확인하지 못하면 503을 반환하며 응답을 캐시하지 않습니다. AI는 선택 기능이므로 연결이 없어도 핵심 서비스의 준비 상태는 정상으로 표시됩니다.
 - AI는 동의 후 학년 정보와 과제 문맥만 외부 제공자에 전달합니다. 반·이름·학교·이메일·비밀번호·세션은 전달하지 않습니다. 동의 철회와 대화 기록 삭제를 제공하지만, 외부 제공자 보관·지역·학습 사용 정책은 별도 계약과 설정이 필요합니다.
 - 과제 삭제는 학생 작업을 보존하는 보관 처리이며 교사는 클래스 화면에서 복원할 수 있습니다. 만료 세션·요청 제한 데이터는 운영 스케줄러에서 `npm run db:cleanup`을 주기적으로 실행하세요.
-- 이메일 인증·비밀번호 재설정·계정 삭제·학교 도메인 기반 교사 재직 인증은 아직 제공하지 않습니다. 실제 학교 운영에서는 승인 절차와 개인정보 보관·삭제 정책을 별도로 설계해야 합니다.
+- 비밀번호 재설정·계정 삭제·학교 도메인 기반 교사 재직 인증은 아직 제공하지 않습니다. 전화번호·계정 진위 확인과 비정상 계정 삭제는 관리자가 별도로 수행해야 합니다.
 
 공개 취약점 신고 방법은 [보안 정책](SECURITY.md)을 참고하세요. 운영 실행은 `npm run db:deploy` → `npm run build` → `npm start` 순서입니다. 자동 배포·PG 결제·외부 AI 계정 개설은 이 저장소의 범위가 아닙니다.
 
@@ -289,8 +294,8 @@ tests/                   도메인 테스트·Playwright E2E
 - [x] 과제 보관·복원과 제출·검토 이력 보존
 - [x] AI 동의·개인정보 최소화·대화 기록 삭제
 - [ ] PRO 자동 공부계획과 고급 일정 분석
-- [ ] 첨부파일 내용 분석 및 안전한 오브젝트 스토리지 분리
-- [ ] 이메일 인증·비밀번호 재설정·학교 도메인 기반 교사 재직 인증
+- [x] 첨부파일 quarantine·ClamAV 검사 경계
+- [ ] 안전한 오브젝트 스토리지 분리·비밀번호 재설정·학교 도메인 기반 교사 재직 인증
 - [ ] 결제·구독 관리와 자동 배포
 
 로드맵의 미완료 항목은 현재 기능으로 광고하지 않으며 화면에서 준비 중으로 표시합니다.

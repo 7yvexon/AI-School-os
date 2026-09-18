@@ -10,6 +10,7 @@ import { getRuntimeConfig } from "@/lib/env";
 import {
   MAX_AI_HISTORY_CHARS,
   MAX_AI_HISTORY_MESSAGES,
+  MAX_AI_GLOBAL_REQUESTS_PER_DAY,
   MAX_AI_REQUEST_BYTES,
 } from "@/lib/limits";
 
@@ -46,6 +47,20 @@ export async function POST(request: Request) {
     if (!user) return fail("로그인이 필요합니다.", 401);
     if (user.role !== "STUDENT")
       return fail("학생 계정만 사용할 수 있습니다.", 403);
+    try {
+      await rateLimit(
+        `ai:ip:${hashIdentifier(requestIp(request.headers))}`,
+        30,
+        60000,
+      );
+      await rateLimit(`ai:${user.id}`, 6, 60000);
+    } catch (error) {
+      if (error instanceof RateLimitError)
+        return fail("잠시 후 다시 질문해 주세요.", 429, {
+          "Retry-After": String(error.retryAfterSeconds),
+        });
+      throw error;
+    }
     const contentType = request.headers.get("content-type");
     if (
       contentType &&
@@ -100,20 +115,17 @@ export async function POST(request: Request) {
         "AI 연결이 아직 설정되지 않았습니다. 관리자에게 문의해 주세요.",
         503,
       );
-    try {
-      await rateLimit(
-        `ai:ip:${hashIdentifier(requestIp(request.headers))}`,
-        30,
-        60000,
+    const day = dayKey();
+    const usage = await db.aIUsage.findUnique({
+      where: { userId_day: { userId: user.id, day } },
+      select: { count: true },
+    });
+    if ((usage?.count ?? 0) >= dailyLimit(user.plan))
+      return fail(
+        "오늘의 AI 사용 한도에 도달했습니다. 자정(한국 시간)에 초기화됩니다.",
+        429,
       );
-      await rateLimit(`ai:${user.id}`, 6, 60000);
-    } catch (error) {
-      if (error instanceof RateLimitError)
-        return fail("잠시 후 다시 질문해 주세요.", 429, {
-          "Retry-After": String(error.retryAfterSeconds),
-        });
-      throw error;
-    }
+    await rateLimit("ai:global", MAX_AI_GLOBAL_REQUESTS_PER_DAY, 86400000);
     const conversation = await db.aIConversation.upsert({
       where: {
         userId_assignmentId: { userId: user.id, assignmentId: assignment.id },
@@ -131,11 +143,8 @@ export async function POST(request: Request) {
       data: { busyUntil: lockUntil },
     });
     if (!lock.count) return fail("이 과제의 이전 답변을 기다려 주세요.", 409);
-    const day = dayKey();
-    let reserved = false;
-    let persisted = false;
     try {
-      reserved = await db.$transaction(async (tx) => {
+      const reserved = await db.$transaction(async (tx) => {
         await tx.aIUsage.upsert({
           where: { userId_day: { userId: user.id, day } },
           create: { userId: user.id, day },
@@ -255,7 +264,6 @@ export async function POST(request: Request) {
         });
         return { answer, usage };
       });
-      persisted = true;
       return Response.json(
         {
           message: {
@@ -274,18 +282,10 @@ export async function POST(request: Request) {
       if (error instanceof AssignmentAccessRevokedError)
         return fail("과제에 접근할 수 없습니다.", 404);
       return fail(
-        "답변을 생성하지 못했습니다. 사용 횟수는 차감되지 않습니다. 잠시 후 다시 시도해 주세요.",
+        "답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         502,
       );
     } finally {
-      if (reserved && !persisted) {
-        try {
-          await db.aIUsage.updateMany({
-            where: { userId: user.id, day, count: { gt: 0 } },
-            data: { count: { decrement: 1 } },
-          });
-        } catch {}
-      }
       try {
         await db.aIConversation.updateMany({
           where: { id: conversation.id, busyUntil: lockUntil },

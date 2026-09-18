@@ -16,7 +16,10 @@ export async function accessibleAssignment(
           ? { teacherId: user.id }
           : { members: { some: { userId: user.id, removedAt: null } } },
     },
-    include: { class: true, attachments: { select: { id: true, name: true } } },
+    include: {
+      class: true,
+      attachments: { select: { id: true, name: true, scanStatus: true } },
+    },
   });
 }
 export async function ownedClass(id: string, userId: string) {

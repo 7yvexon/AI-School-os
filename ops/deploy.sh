@@ -42,6 +42,7 @@ command -v curl >/dev/null
 command -v systemctl >/dev/null
 command -v chown >/dev/null
 command -v find >/dev/null
+command -v runuser >/dev/null
 
 APP_ROOT=$(readlink -f -- "$APP_ROOT")
 CONFIG_ROOT=$(readlink -f -- "$CONFIG_ROOT")
@@ -100,7 +101,7 @@ load_environment() {
     key=${line%%=*}
     value=${line#*=}
     case "$key" in
-      NODE_ENV|DATABASE_URL|AUTH_SECRET|APP_URL|TRUST_PROXY|SERVER_ACTION_ALLOWED_ORIGINS|AI_API_KEY|AI_BASE_URL|AI_MODEL|TEACHER_INVITE_CODE) ;;
+      NODE_ENV|DATABASE_URL|AUTH_SECRET|APP_URL|TRUST_PROXY|SERVER_ACTION_ALLOWED_ORIGINS|AI_API_KEY|AI_BASE_URL|AI_MODEL|CLAMAV_SOCKET|CLAMAV_HOST|CLAMAV_PORT|TEACHER_INVITE_CODE) ;;
       *) echo "환경 파일에 허용되지 않은 항목이 있습니다: $key" >&2; exit 1 ;;
     esac
     case "$value" in
@@ -134,13 +135,30 @@ if [ "$HEALTH_URL" != "http://127.0.0.1:${app_port_number}/api/health" ]; then
 fi
 
 cd "$RELEASE_DIR"
-npm ci --include=dev
-npm run ops:check-env:production
-npm run db:preflight
-npm run db:generate
-npm run db:deploy
+if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
+  echo "서비스 사용자를 찾을 수 없습니다: $SERVICE_USER" >&2
+  exit 1
+fi
+chown -R "$SERVICE_USER":"$SERVICE_USER" "$RELEASE_DIR"
+BUILD_HOME="$RELEASE_DIR/.build-home"
+mkdir -p "$BUILD_HOME"
+chown "$SERVICE_USER":"$SERVICE_USER" "$BUILD_HOME"
+chmod 0700 "$BUILD_HOME"
+cleanup_build_home() { rm -rf -- "$BUILD_HOME"; }
+trap cleanup_build_home EXIT
+run_as_service() {
+  runuser --preserve-environment -u "$SERVICE_USER" -- env \
+    HOME="$BUILD_HOME" \
+    NPM_CONFIG_CACHE="$BUILD_HOME/.npm" \
+    "$@"
+}
+run_as_service npm ci --include=dev --ignore-scripts
+run_as_service npm run ops:check-env:production
+run_as_service npm run db:generate
+run_as_service npm run db:preflight
+run_as_service npm run db:deploy
 rm -rf "$RELEASE_DIR/.next"
-npm run build
+run_as_service npm run build
 
 chown -R root:"$SERVICE_USER" "$RELEASE_DIR"
 find "$RELEASE_DIR" -type d -exec chmod 0750 {} +

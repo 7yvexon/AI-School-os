@@ -71,6 +71,7 @@ export async function GET(
     const file = await db.attachment.findFirst({
       where: {
         id: attachmentId,
+        scanStatus: "CLEAN",
         assignment: {
           ...(user.role === "TEACHER" ? {} : { archivedAt: null }),
           class:

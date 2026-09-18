@@ -16,6 +16,7 @@
     "db:preflight": "tsx scripts/check-migration-data.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:cleanup": "tsx scripts/cleanup-expired.ts",
+    "attachments:scan": "tsx scripts/scan-quarantined.ts",
     "ops:check-env": "tsx scripts/check-env.ts",
     "ops:check-env:production": "tsx scripts/check-env.ts --production",
     "teacher:approve": "tsx scripts/approve-teacher.ts",

@@ -41,6 +41,12 @@ import { RestoreMemberButton } from "./RestoreMemberButton";
 import { MAX_AI_MESSAGES_ON_PAGE } from "@/lib/limits";
 
 type Role = "STUDENT" | "TEACHER";
+const attachmentStatusLabels = {
+  QUARANTINED: "검사 대기",
+  CLEAN: "검사 완료",
+  INFECTED: "차단됨",
+  SCAN_ERROR: "검사 오류",
+} as const;
 export function Heading({
   title,
   description,
@@ -788,9 +794,15 @@ export async function AssignmentDetail({
               <h2 className="small-heading">첨부파일</h2>
               {assignment.attachments.map((a) => (
                 <div className="list-item" key={a.id}>
-                  <a className="text-link" href={`/api/attachments/${a.id}`}>
-                    {a.name} <Download size={13} aria-hidden="true" />
-                  </a>
+                  {a.scanStatus === "CLEAN" ? (
+                    <a className="text-link" href={`/api/attachments/${a.id}`}>
+                      {a.name} <Download size={13} aria-hidden="true" />
+                    </a>
+                  ) : (
+                    <span>
+                      {a.name} · {attachmentStatusLabels[a.scanStatus]}
+                    </span>
+                  )}
                   {role === "TEACHER" && (
                     <DeleteButton
                       op="attachment-delete"

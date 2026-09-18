@@ -8,8 +8,12 @@ import {
   attachmentMimeMatchesData,
   sanitizeAttachmentName,
 } from "../src/lib/attachment";
-import { MAX_ATTACHMENT_BYTES } from "../src/lib/limits";
+import {
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_BYTES_PER_CLASS,
+} from "../src/lib/limits";
 import { parseRuntimeConfig, RuntimeConfigError } from "../src/lib/env-core";
+import { scanAttachmentData } from "../src/lib/attachment-scanner";
 
 test("request IP uses forwarded headers only when the proxy is trusted", () => {
   const previous = process.env.TRUST_PROXY;
@@ -178,4 +182,43 @@ test("runtime configuration validates production requirements without exposing v
     () => parseRuntimeConfig({ ...source, NODE_ENV: "staging" }, true),
     RuntimeConfigError,
   );
+  assert.throws(
+    () => parseRuntimeConfig({ ...source, TRUST_PROXY: "false" }, true),
+    RuntimeConfigError,
+  );
+  assert.throws(
+    () =>
+      parseRuntimeConfig(
+        { ...source, AI_ALLOW_INSECURE_HTTP_LOCALHOST: "true" },
+        true,
+      ),
+    RuntimeConfigError,
+  );
+  assert.throws(
+    () => parseRuntimeConfig({ ...source, E2E_TEST_MODE: "true" }, true),
+    RuntimeConfigError,
+  );
+  assert.equal(MAX_ATTACHMENT_BYTES_PER_CLASS, 50 * 1024 * 1024);
+});
+
+test("ClamAV가 없으면 첨부파일을 clean으로 승격하지 않는다", async () => {
+  const previousHost = process.env.CLAMAV_HOST;
+  const previousSocket = process.env.CLAMAV_SOCKET;
+  const previousE2e = process.env.E2E_TEST_MODE;
+  try {
+    delete process.env.CLAMAV_HOST;
+    delete process.env.CLAMAV_SOCKET;
+    delete process.env.E2E_TEST_MODE;
+    assert.deepEqual(await scanAttachmentData(new Uint8Array([65])), {
+      status: "UNAVAILABLE",
+      engine: null,
+    });
+  } finally {
+    if (previousHost === undefined) delete process.env.CLAMAV_HOST;
+    else process.env.CLAMAV_HOST = previousHost;
+    if (previousSocket === undefined) delete process.env.CLAMAV_SOCKET;
+    else process.env.CLAMAV_SOCKET = previousSocket;
+    if (previousE2e === undefined) delete process.env.E2E_TEST_MODE;
+    else process.env.E2E_TEST_MODE = previousE2e;
+  }
 });

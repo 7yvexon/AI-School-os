@@ -1,0 +1,7 @@
+ALTER TABLE "User"
+  ADD COLUMN "phone" TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE "User"
+  DROP COLUMN IF EXISTS "emailVerifiedAt";
+
+DROP TABLE IF EXISTS "PendingRegistration";

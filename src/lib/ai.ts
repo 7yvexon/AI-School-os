@@ -56,8 +56,7 @@ function aiBaseUrl() {
       !(
         url.protocol === "http:" &&
         process.env.AI_ALLOW_INSECURE_HTTP_LOCALHOST === "true" &&
-        (process.env.NODE_ENV !== "production" ||
-          process.env.E2E_TEST_MODE === "true") &&
+        process.env.NODE_ENV !== "production" &&
         ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
       )
     )

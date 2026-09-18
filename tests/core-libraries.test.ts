@@ -39,7 +39,7 @@ test("운영 환경 설정은 원본 URL과 비밀값 경계를 검증한다", (
     DATABASE_URL: "postgresql://school:password@localhost:5432/school_os",
     AUTH_SECRET: "a".repeat(32),
     APP_URL: "https://school.example",
-    TRUST_PROXY: "false",
+    TRUST_PROXY: "true",
     SERVER_ACTION_ALLOWED_ORIGINS: "*.school.example,school.example:8443",
     NODE_ENV: "production",
   };

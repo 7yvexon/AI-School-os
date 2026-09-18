@@ -243,6 +243,22 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               />
             </div>
 
+            {register && (
+              <div className="study-auth-field">
+                <label htmlFor="phone">전화번호</label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  required
+                  maxLength={32}
+                  autoComplete="tel"
+                  inputMode="tel"
+                  placeholder="010-1234-5678"
+                />
+              </div>
+            )}
+
             <div className="study-auth-field">
               <label htmlFor="password">비밀번호</label>
               <input
@@ -253,14 +269,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 minLength={10}
                 maxLength={72}
                 autoComplete={register ? "new-password" : "current-password"}
-                aria-describedby={register ? "auth-password-hint" : undefined}
                 placeholder="10자 이상"
               />
-              {register && (
-                <span id="auth-password-hint" className="study-auth-hint">
-                  개발용 계정도 안전하게 10자 이상을 사용해 주세요.
-                </span>
-              )}
             </div>
 
             <SubmitButton

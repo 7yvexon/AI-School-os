@@ -49,7 +49,8 @@ export const getUser = cache(async function getUser() {
       },
     },
   });
-  return session && session.expiresAt > new Date() ? session.user : null;
+  if (!session || session.expiresAt <= new Date()) return null;
+  return session.user;
 });
 export async function requireUser(role?: "STUDENT" | "TEACHER") {
   const user = await getUser();

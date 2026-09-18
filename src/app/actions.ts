@@ -10,6 +10,7 @@ import { ownedClass, accessibleAssignment } from "@/lib/access";
 import { rateLimit, RateLimitError } from "@/lib/rate-limit";
 import { hashIdentifier, requestIp } from "@/lib/request";
 import { createClassCode } from "@/lib/class-code";
+import { scanAttachmentData } from "@/lib/attachment-scanner";
 import {
   attachmentDataSizeAllowed,
   attachmentMimeMatchesData,
@@ -18,10 +19,20 @@ import {
 import {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENT_BYTES_PER_CLASS,
+  MAX_ATTACHMENT_BYTES_PER_TEACHER,
+  MAX_CLASSES_PER_TEACHER,
   MAX_ATTACHMENTS_PER_CLASS,
 } from "@/lib/limits";
 const text = (max: number) =>
   z.string().trim().min(1, "필수 항목을 입력해 주세요.").max(max);
+const passwordSchema = z
+  .string()
+  .min(10, "비밀번호는 10자 이상이어야 합니다.")
+  .max(72)
+  .refine(
+    (v) => Buffer.byteLength(v, "utf8") <= 72,
+    "비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.",
+  );
 const due = z.iso.date().transform((v) => new Date(`${v}T23:59:59+09:00`));
 const reviewStatus = z.enum(["RETURNED", "REVIEWED"]);
 const operation = z.enum([
@@ -65,11 +76,21 @@ async function createClassWithUniqueCode(data: {
 }) {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      return await db.class.create({
-        data: {
-          ...data,
-          code: createClassCode(),
-        },
+      return await db.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id" FROM "User" WHERE "id" = ${data.teacherId} FOR UPDATE
+        `;
+        const count = await tx.class.count({
+          where: { teacherId: data.teacherId },
+        });
+        if (count >= MAX_CLASSES_PER_TEACHER)
+          throw new ActionError("선생님별 클래스 생성 한도에 도달했습니다.");
+        return tx.class.create({
+          data: {
+            ...data,
+            code: createClassCode(),
+          },
+        });
       });
     } catch (e) {
       if (!isUniqueConstraintError(e)) throw e;
@@ -90,17 +111,15 @@ async function rotateClassCode(classId: string) {
   }
   throw new ActionError("초대 코드를 발급하지 못했습니다.");
 }
-function message(e: unknown, duplicateEmail = false) {
-  return duplicateEmail && isUniqueConstraintError(e)
-    ? "이미 가입된 이메일입니다. 로그인해 주세요."
-    : e instanceof z.ZodError
-      ? e.issues[0].message
-      : e instanceof ActionError
+function message(e: unknown) {
+  return e instanceof z.ZodError
+    ? e.issues[0].message
+    : e instanceof ActionError
+      ? e.message
+      : e instanceof RateLimitError ||
+          (e instanceof Error && /요청이 너무/.test(e.message))
         ? e.message
-        : e instanceof RateLimitError ||
-            (e instanceof Error && /요청이 너무/.test(e.message))
-          ? e.message
-          : "요청을 처리하지 못했습니다. 입력과 접근 권한을 확인해 주세요.";
+        : "요청을 처리하지 못했습니다. 입력과 접근 권한을 확인해 주세요.";
 }
 export async function authenticate(
   _: ActionState,
@@ -116,39 +135,58 @@ export async function authenticate(
           .email()
           .max(254)
           .transform((v) => v.toLowerCase()),
-        password: z
-          .string()
-          .min(10, "비밀번호는 10자 이상이어야 합니다.")
-          .max(72)
-          .refine(
-            (v) => Buffer.byteLength(v, "utf8") <= 72,
-            "비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.",
-          ),
       })
+      .extend(
+        mode === "login"
+          ? { password: passwordSchema }
+          : {
+              password: passwordSchema,
+              phone: z
+                .string()
+                .trim()
+                .min(3, "전화번호를 입력해 주세요.")
+                .max(32, "전화번호를 확인해 주세요."),
+            },
+      )
       .parse(Object.fromEntries(form));
+    const submittedPassword = "password" in data ? data.password : undefined;
     const ip = requestIp(await headers());
     await rateLimit(`auth:ip:${hashIdentifier(ip)}`, 30, 15 * 60000);
-    if (mode === "register")
+    if (mode === "register") {
       await rateLimit(`register:ip:${hashIdentifier(ip)}`, 5, 60 * 60000);
+      await rateLimit(
+        `register:email-ip:${hashIdentifier(`${data.email}:${ip}`)}`,
+        3,
+        60 * 60000,
+      );
+    }
     let user;
     if (mode === "register") {
       const profile = z
         .object({ name: text(40), role: z.enum(["STUDENT", "TEACHER"]) })
         .parse(Object.fromEntries(form));
+      const phone = z
+        .string()
+        .trim()
+        .min(3, "전화번호를 입력해 주세요.")
+        .max(32, "전화번호를 확인해 주세요.")
+        .parse(form.get("phone"));
       user = await db.user.create({
         data: {
           ...profile,
           email: data.email,
-          passwordHash: await bcrypt.hash(data.password, 12),
-          ...(profile.role === "TEACHER"
-            ? { teacherApprovedAt: new Date() }
-            : {}),
+          phone,
+          passwordHash: await bcrypt.hash(
+            passwordSchema.parse(submittedPassword),
+            12,
+          ),
+          teacherApprovedAt: null,
         },
       });
     } else {
       user = await db.user.findUnique({ where: { email: data.email } });
       const valid = await bcrypt.compare(
-        data.password,
+        submittedPassword ?? "",
         user?.passwordHash ??
           "$2b$12$C6UzMDM.H6dfI/f/IKcEe.5wZOkJ/KLCNNv9ABeDH9bOiSDDbpUei",
       );
@@ -161,12 +199,18 @@ export async function authenticate(
         return { error: "이메일 또는 비밀번호가 올바르지 않습니다." };
       }
     }
-    if (user.role === "TEACHER" && !user.teacherApprovedAt)
+    if (user.role === "TEACHER" && !user.teacherApprovedAt) {
+      if (mode === "register")
+        return {
+          success:
+            "교사 가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.",
+        };
       throw new ActionError("교사 승인이 필요합니다.");
+    }
     await createSession(user.id);
     target = `/${user.role.toLowerCase()}/dashboard`;
   } catch (e) {
-    return { error: message(e, mode === "register") };
+    return { error: message(e) };
   }
   redirect(target);
 }
@@ -321,11 +365,15 @@ export async function mutate(
           data,
         };
       }
-      const assignment = await db.$transaction(async (tx) => {
+      const result = await db.$transaction(async (tx) => {
         const a = id
           ? await tx.assignment.update({ where: { id }, data })
           : await tx.assignment.create({ data: { ...data, classId } });
+        let createdAttachment: { id: string } | null = null;
         if (attachment) {
+          await tx.$queryRaw`
+            SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE
+          `;
           await tx.$queryRaw`
             SELECT "id" FROM "Class" WHERE "id" = ${classId} FOR UPDATE
           `;
@@ -344,13 +392,55 @@ export async function mutate(
             throw new ActionError(
               "클래스 첨부파일 총용량 한도에 도달했습니다.",
             );
-          await tx.attachment.create({
+          const teacherWhere = {
+            assignment: { class: { teacherId: user.id } },
+          };
+          const teacherTotal = await tx.attachment.aggregate({
+            where: teacherWhere,
+            _sum: { size: true },
+          });
+          if (
+            (teacherTotal._sum.size ?? 0) + attachment.size >
+            MAX_ATTACHMENT_BYTES_PER_TEACHER
+          )
+            throw new ActionError(
+              "선생님별 첨부파일 총용량 한도에 도달했습니다.",
+            );
+          createdAttachment = await tx.attachment.create({
             data: { ...attachment, assignmentId: a.id },
           });
         }
-        return a;
+        return { assignment: a, attachment: createdAttachment };
       });
-      target = `/teacher/assignments/${assignment.id}`;
+      if (result.attachment && attachment) {
+        const scan = await scanAttachmentData(attachment.data);
+        const scanStatus =
+          scan.status === "CLEAN"
+            ? "CLEAN"
+            : scan.status === "INFECTED"
+              ? "INFECTED"
+              : scan.status === "ERROR"
+                ? "SCAN_ERROR"
+                : "QUARANTINED";
+        await db.attachment.update({
+          where: { id: result.attachment.id },
+          data: {
+            scanStatus,
+            scannedAt: scan.status === "UNAVAILABLE" ? null : new Date(),
+            scanEngine: scan.engine,
+          },
+        });
+        if (scan.status === "INFECTED")
+          return {
+            error: "안전하지 않은 첨부파일로 판단되어 업로드할 수 없습니다.",
+          };
+        if (scan.status !== "CLEAN")
+          return {
+            error:
+              "첨부파일 검사를 완료하지 못했습니다. 관리자에게 문의해 주세요.",
+          };
+      }
+      target = `/teacher/assignments/${result.assignment.id}`;
     } else if (op === "delete" || op === "assignment-archive") {
       const id = text(50).parse(form.get("id"));
       const a = await accessibleAssignment(id, user, { includeArchived: true });

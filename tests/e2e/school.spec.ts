@@ -19,8 +19,20 @@ async function register(
   await page.getByLabel("이름", { exact: true }).fill(name);
   await page.getByLabel(role, { exact: true }).check({ force: true });
   await page.getByLabel("이메일").fill(email);
+  await page.getByLabel("전화번호").fill("010-0000-0000");
   await page.getByLabel("비밀번호").fill(e2eTestPassword);
   await page.getByRole("button", { name: "회원가입" }).click();
+  if (role === "선생님") {
+    await expect(page.getByRole("status")).toContainText("교사 가입 신청");
+    await db.user.update({
+      where: { email },
+      data: { teacherApprovedAt: new Date() },
+    });
+    await page.goto("/login");
+    await page.getByLabel("이메일").fill(email);
+    await page.getByLabel("비밀번호").fill(e2eTestPassword);
+    await page.getByRole("button", { name: "로그인" }).click();
+  }
   await expect(page).toHaveURL(
     new RegExp(`/${role === "학생" ? "student" : "teacher"}/dashboard`),
   );
@@ -231,7 +243,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   expect((await request("FAIL_PROVIDER")).status()).toBe(502);
   expect(
     (await db.aIUsage.findUniqueOrThrow({ where: { id: usage.id } })).count,
-  ).toBe(1);
+  ).toBe(2);
   await db.aIUsage.update({ where: { id: usage.id }, data: { count: 9 } });
   const responses = await Promise.all([
     request("첫 질문"),
@@ -412,7 +424,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await teacher.getByLabel("비밀번호").fill(e2eTestPassword);
   await teacher.getByRole("button", { name: "회원가입" }).click();
   await expect(teacher.locator(".alert-error")).toContainText(
-    "이미 가입된 이메일입니다",
+    "요청을 처리하지 못했습니다",
   );
   await outsiderContext.close();
   await teacherContext.close();
