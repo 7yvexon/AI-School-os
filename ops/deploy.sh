@@ -100,7 +100,7 @@ load_environment() {
     key=${line%%=*}
     value=${line#*=}
     case "$key" in
-      NODE_ENV|DATABASE_URL|AUTH_SECRET|APP_URL|TRUST_PROXY|SERVER_ACTION_ALLOWED_ORIGINS|AI_API_KEY|AI_BASE_URL|AI_MODEL) ;;
+      NODE_ENV|DATABASE_URL|AUTH_SECRET|APP_URL|TRUST_PROXY|SERVER_ACTION_ALLOWED_ORIGINS|AI_API_KEY|AI_BASE_URL|AI_MODEL|TEACHER_INVITE_CODE) ;;
       *) echo "환경 파일에 허용되지 않은 항목이 있습니다: $key" >&2; exit 1 ;;
     esac
     case "$value" in
