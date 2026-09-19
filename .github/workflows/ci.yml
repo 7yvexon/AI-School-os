@@ -16,6 +16,7 @@ jobs:
           node-version: 22.12.x
           cache: npm
       - run: npm ci
+      - run: npm run ops:check-deprecations
       - run: npm run db:generate
       - run: npm run lint
       - run: npm run format:check

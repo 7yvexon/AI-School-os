@@ -26,7 +26,7 @@ const path = require("node:path");
         ".landing-header,.cinema-caption,.cinema-bottom,.cinema-scroll,.cinema-shade,.product-experience{display:none!important}.product-cinema{margin:0!important;border-radius:0!important;min-height:0!important;height:720px!important;width:1280px!important}",
     });
     await page.addScriptTag({
-      path: path.resolve("node_modules/webm-muxer/build/webm-muxer.js"),
+      path: path.resolve("node_modules/mediabunny/dist/bundles/mediabunny.cjs"),
     });
     await page.waitForTimeout(300);
     const result = await page
@@ -34,54 +34,39 @@ const path = require("node:path");
       .evaluate(async (host) => {
         host.dataset.recording = "true";
         const canvas = host.querySelector("canvas");
-        const { Muxer, ArrayBufferTarget } = WebMMuxer;
-        const target = new ArrayBufferTarget();
-        const muxer = new Muxer({
+        const {
+          BufferTarget,
+          CanvasSource,
+          Output,
+          Quality,
+          WebMOutputFormat,
+        } = Mediabunny;
+        const target = new BufferTarget();
+        const output = new Output({
+          format: new WebMOutputFormat(),
           target,
-          video: {
-            codec: "V_VP9",
-            width: canvas.width,
-            height: canvas.height,
-            frameRate: 24,
-          },
-          firstTimestampBehavior: "offset",
         });
-        let encodingError;
-        const encoder = new VideoEncoder({
-          output: (chunk, metadata) => muxer.addVideoChunk(chunk, metadata),
-          error: (e) => {
-            encodingError = e;
-          },
-        });
-        encoder.configure({
-          codec: "vp09.00.10.08",
-          width: canvas.width,
-          height: canvas.height,
-          bitrate: 4500000,
-          framerate: 24,
+        const source = new CanvasSource(canvas, {
+          codec: "vp9",
+          quality: new Quality({ bitrate: 4500000 }),
+          keyFrameInterval: 2,
           latencyMode: "quality",
+          fullCodecString: "vp09.00.10.08",
         });
+        output.addVideoTrack(source, { frameRate: 24 });
+        await output.start();
         let poster;
         for (let i = 0; i < 480; i++) {
           host.dispatchEvent(new CustomEvent("film-frame", { detail: i / 24 }));
           if (i === 0)
             poster = canvas.toDataURL("image/jpeg", 0.94).split(",")[1];
-          const frame = new VideoFrame(canvas, {
-            timestamp: Math.round((i * 1000000) / 24),
-            duration: Math.round(1000000 / 24),
-          });
-          encoder.encode(frame, { keyFrame: i % 48 === 0 });
-          frame.close();
-          if (i % 12 === 11) {
-            await encoder.flush();
-            if (encodingError) throw encodingError;
-          }
+          await source.add(i / 24, 1 / 24, { keyFrame: i % 48 === 0 });
           if (i % 48 === 47) console.log("Film: " + (i + 1) + "/480 frames");
           await new Promise((r) => setTimeout(r, 0));
         }
-        await encoder.flush();
-        encoder.close();
-        muxer.finalize();
+        await output.finalize();
+        if (!target.buffer)
+          throw new Error("Mediabunny output buffer is empty");
         const base64 = await new Promise((resolve) => {
           const r = new FileReader();
           r.onload = () => resolve(r.result.split(",")[1]);

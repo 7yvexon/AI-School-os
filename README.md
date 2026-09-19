@@ -56,7 +56,7 @@ npx playwright install chromium
 node scripts/render-school-film.cjs
 ```
 
-`src/lib/school-film.ts`의 기기·조명·예시 UI를 24fps, 20초로 렌더링해 `public/media/school-film.webm`과 포스터를 갱신합니다.
+`src/lib/school-film.ts`의 기기·조명·예시 UI를 Mediabunny와 WebCodecs로 24fps, 20초 렌더링해 `public/media/school-film.webm`과 포스터를 갱신합니다.
 
 ## 목차
 
@@ -223,6 +223,7 @@ AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 
 | `npm run format`                               | Prettier 포맷 적용                          |
 | `npm run format:check`                         | Prettier 포맷 검사                          |
 | `npm run db:generate`                          | Prisma Client 생성                          |
+| `npm run ops:check-deprecations`               | 잠금 파일의 deprecated 의존성 사전 점검     |
 | `npm run db:migrate -- --name describe_change` | 개발 마이그레이션 생성                      |
 | `npm run db:deploy`                            | 저장소 마이그레이션 적용                    |
 | `npm run db:preflight`                         | 무변경 migration 데이터 사전 점검           |
@@ -240,6 +241,7 @@ AI를 연결하려면 위 AI 변수 3개를 설정하고 서버를 재시작한 
 
 ```bash
 npm run format
+npm run ops:check-deprecations
 npm run db:generate
 npm run lint
 npm run format:check
@@ -248,6 +250,8 @@ npm run typecheck
 npm run build
 npm run test:e2e
 ```
+
+`npm run ops:check-deprecations`는 `package-lock.json`의 deprecated 메타데이터를 점검합니다. 현재는 Next.js ESLint 플러그인 호환성 때문에 `eslint@9.39.5`만 허용하며, 다른 항목이나 ESLint 버전 변경은 검토 없이 통과하지 않습니다.
 
 E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres-v2`), 기본 `3100` 포트의 빌드된 Next.js 서버, 그리고 loopback에서 실행되는 결정적 로컬 AI 픽스처를 사용합니다. AI 픽스처 포트는 기본적으로 비어 있는 포트를 자동 할당하며 `E2E_AI_MOCK_PORT`로 고정할 수 있습니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다. E2E에서는 전화번호를 포함한 일반 가입 흐름을 그대로 사용합니다.
 

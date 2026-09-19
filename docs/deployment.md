@@ -53,9 +53,9 @@ SERVICE_NAME=your-app \
 bash ops/deploy.sh /srv/your-app/releases/<release-id>
 ```
 
-운영 DB를 변경하기 전에는 새 릴리스에서 `npm run db:preflight`를 실행해 기존 데이터가 새 제약을 만족하는지 확인합니다. 점검이 통과한 뒤 스크립트는 전용 서비스 사용자로 `npm ci --ignore-scripts` → Prisma Client 생성 → 마이그레이션 적용 → 프로덕션 빌드 → `current` 심볼릭 링크 교체 → systemd 재시작 → `/api/health` 확인 순서로 동작합니다. health check가 실패하면 직전 릴리스 링크로 되돌린 뒤 서비스를 재시작합니다. 릴리스 디렉터리는 자동 삭제하지 않으므로 복구가 필요할 때까지 보존합니다.
+운영 DB를 변경하기 전에는 새 릴리스에서 `npm run db:preflight`를 실행해 기존 데이터가 새 제약을 만족하는지 확인합니다. 점검이 통과한 뒤 스크립트는 전용 서비스 사용자로 `npm ci --include=dev --ignore-scripts` → `npm run ops:check-deprecations` → 운영 환경 점검 → Prisma Client 생성 → 마이그레이션 사전 점검 → 마이그레이션 적용 → 프로덕션 빌드 → `current` 심볼릭 링크 교체 → systemd 재시작 → `/api/health` 확인 순서로 동작합니다. deprecated 점검에서 허용되지 않은 의존성이 발견되면 DB 변경이나 서비스 재시작 전에 배포를 중단합니다. 현재 `eslint@9.39.5`는 Next.js 플러그인 호환성 때문에 허용 목록에 있는 유일한 예외이며, 새 버전이나 다른 패키지는 자동으로 차단됩니다. health check가 실패하면 직전 릴리스 링크로 되돌린 뒤 서비스를 재시작합니다. 릴리스 디렉터리는 자동 삭제하지 않으므로 복구가 필요할 때까지 보존합니다.
 
-소스 복사 시 `.git`, `.local`, `node_modules`, `.next`, `test-results`, `AGENTS.local.md` 같은 저장소·로컬 산출물과 내부 메모리는 릴리스에 넣지 않습니다.
+소스 복사 시 `.git`, `.local`, `node_modules`, `.next`, `test-results`, `AGENTS.local.md` 같은 저장소·로컬 산출물과 내부 메모리는 릴리스에 넣지 않습니다. `package.json`, `package-lock.json`, `prisma.config.ts`, `prisma/schema.prisma`는 배포 스크립트가 필수 파일로 확인하므로 릴리스에 포함해야 합니다.
 
 ## Cloudflare 라우트
 

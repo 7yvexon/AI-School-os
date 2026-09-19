@@ -78,7 +78,7 @@ if [ ! -d "$RELEASE_DIR" ]; then
   exit 1
 fi
 
-for file in package.json package-lock.json prisma/schema.prisma; do
+for file in package.json package-lock.json prisma.config.ts prisma/schema.prisma; do
   [ -r "$RELEASE_DIR/$file" ] || { echo "필수 파일이 없습니다: $RELEASE_DIR/$file" >&2; exit 1; }
 done
 if [ -L "$ENV_FILE" ] || [ ! -f "$ENV_FILE" ] || [ ! -r "$ENV_FILE" ]; then
@@ -161,6 +161,7 @@ run_as_service() {
     "$@"
 }
 run_as_service npm ci --include=dev --ignore-scripts
+run_as_service npm run ops:check-deprecations
 run_as_service npm run ops:check-env:production
 run_as_service npm run db:generate
 run_as_service npm run db:preflight
