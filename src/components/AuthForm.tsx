@@ -261,7 +261,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             )}
 
             {register && selectedRole === "TEACHER" && (
-              <p className="study-auth-hint" role="status">
+              <p className="study-auth-hint" aria-live="polite">
                 선생님 계정은 관리자 승인 후 로그인할 수 있어요.
               </p>
             )}
