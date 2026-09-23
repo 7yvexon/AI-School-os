@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { aiConfigured, completeChat, type ChatMessage } from "@/lib/ai";
 import { aiContext, dailyLimit, dayKey } from "@/lib/domain";
 import { RateLimitError, rateLimit } from "@/lib/rate-limit";
+import { validateRateLimitConfig } from "@/lib/rate-limit-core";
 import { hashIdentifier, requestIp } from "@/lib/request";
 import { getRuntimeConfig } from "@/lib/env";
 import {
@@ -125,7 +126,6 @@ export async function POST(request: Request) {
         "오늘의 AI 사용 한도에 도달했습니다. 자정(한국 시간)에 초기화됩니다.",
         429,
       );
-    await rateLimit("ai:global", MAX_AI_GLOBAL_REQUESTS_PER_DAY, 86400000);
     const conversation = await db.aIConversation.upsert({
       where: {
         userId_assignmentId: { userId: user.id, assignmentId: assignment.id },
@@ -144,23 +144,6 @@ export async function POST(request: Request) {
     });
     if (!lock.count) return fail("이 과제의 이전 답변을 기다려 주세요.", 409);
     try {
-      const reserved = await db.$transaction(async (tx) => {
-        await tx.aIUsage.upsert({
-          where: { userId_day: { userId: user.id, day } },
-          create: { userId: user.id, day },
-          update: {},
-        });
-        const result = await tx.aIUsage.updateMany({
-          where: { userId: user.id, day, count: { lt: dailyLimit(user.plan) } },
-          data: { count: { increment: 1 } },
-        });
-        return result.count === 1;
-      });
-      if (!reserved)
-        return fail(
-          "오늘의 AI 사용 한도에 도달했습니다. 자정(한국 시간)에 초기화됩니다.",
-          429,
-        );
       const history = await db.aIMessage.findMany({
         where: { conversationId: conversation.id },
         orderBy: { createdAt: "desc" },
@@ -196,6 +179,45 @@ export async function POST(request: Request) {
         select: { aiConsentAt: true },
       });
       if (!consent?.aiConsentAt) return fail("AI 사용 동의가 필요합니다.", 428);
+      const globalLimit = validateRateLimitConfig(
+        "ai:global",
+        MAX_AI_GLOBAL_REQUESTS_PER_DAY,
+        86400000,
+      );
+      const reserved = await db.$transaction(async (tx) => {
+        await tx.aIUsage.upsert({
+          where: { userId_day: { userId: user.id, day } },
+          create: { userId: user.id, day },
+          update: {},
+        });
+        const usageResult = await tx.aIUsage.updateMany({
+          where: { userId: user.id, day, count: { lt: dailyLimit(user.plan) } },
+          data: { count: { increment: 1 } },
+        });
+        if (!usageResult.count) return false;
+        const globalKey = `${globalLimit.key}:${globalLimit.bucket}`;
+        const globalRecord = await tx.rateLimit.upsert({
+          where: { key: globalKey },
+          create: {
+            key: globalKey,
+            expiresAt: new Date(globalLimit.expiresAtMs),
+          },
+          update: { count: { increment: 1 } },
+        });
+        if (globalRecord.count > MAX_AI_GLOBAL_REQUESTS_PER_DAY)
+          throw new RateLimitError(
+            Math.max(
+              1,
+              Math.ceil((globalRecord.expiresAt.getTime() - Date.now()) / 1000),
+            ),
+          );
+        return true;
+      });
+      if (!reserved)
+        return fail(
+          "오늘의 AI 사용 한도에 도달했습니다. 자정(한국 시간)에 초기화됩니다.",
+          429,
+        );
       const reply = await completeChat(messages);
       const liveConversation = await db.aIConversation.findUnique({
         where: { id: conversation.id },
@@ -277,6 +299,10 @@ export async function POST(request: Request) {
         { headers: responseHeaders() },
       );
     } catch (error) {
+      if (error instanceof RateLimitError)
+        return fail("잠시 후 다시 질문해 주세요.", 429, {
+          "Retry-After": String(error.retryAfterSeconds),
+        });
       if (error instanceof ConsentRevokedError)
         return fail("AI 사용 동의가 필요합니다.", 428);
       if (error instanceof AssignmentAccessRevokedError)

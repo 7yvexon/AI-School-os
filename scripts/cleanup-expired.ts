@@ -4,9 +4,9 @@ import { cleanupExpiredRecords } from "../src/lib/database-maintenance";
 
 const db = new PrismaClient();
 cleanupExpiredRecords(db)
-  .then(({ sessions, rateLimits }) => {
+  .then(({ sessions, rateLimits, uploadReservations }) => {
     console.log(
-      `만료 세션 ${sessions}개, 만료 요청 제한 ${rateLimits}개 정리 완료.`,
+      `만료 세션 ${sessions}개, 만료 요청 제한 ${rateLimits}개, 만료 첨부 예약 ${uploadReservations}개 정리 완료.`,
     );
   })
   .catch(() => {

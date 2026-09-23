@@ -1,6 +1,7 @@
 "use server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import type { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -17,6 +18,7 @@ import {
   sanitizeAttachmentName,
 } from "@/lib/attachment";
 import {
+  ATTACHMENT_UPLOAD_RESERVATION_MS,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENT_BYTES_PER_CLASS,
   MAX_ATTACHMENT_BYTES_PER_TEACHER,
@@ -111,6 +113,86 @@ async function rotateClassCode(classId: string) {
     }
   }
   throw new ActionError("초대 코드를 발급하지 못했습니다.");
+}
+async function requireAttachmentCapacity(
+  client: Pick<Prisma.TransactionClient, "attachment">,
+  classId: string,
+  teacherId: string,
+  size: number,
+  pending: { classCount: number; classBytes: number; teacherBytes: number },
+) {
+  const where = { assignment: { classId } };
+  const count = await client.attachment.count({ where });
+  if (count + pending.classCount >= MAX_ATTACHMENTS_PER_CLASS)
+    throw new ActionError("클래스 첨부파일 개수 한도에 도달했습니다.");
+  const total = await client.attachment.aggregate({
+    where,
+    _sum: { size: true },
+  });
+  if (
+    (total._sum.size ?? 0) + pending.classBytes + size >
+    MAX_ATTACHMENT_BYTES_PER_CLASS
+  )
+    throw new ActionError("클래스 첨부파일 총용량 한도에 도달했습니다.");
+  const teacherTotal = await client.attachment.aggregate({
+    where: { assignment: { class: { teacherId } } },
+    _sum: { size: true },
+  });
+  if (
+    (teacherTotal._sum.size ?? 0) + pending.teacherBytes + size >
+    MAX_ATTACHMENT_BYTES_PER_TEACHER
+  )
+    throw new ActionError("선생님별 첨부파일 총용량 한도에 도달했습니다.");
+}
+async function activeAttachmentReservations(
+  client: Pick<Prisma.TransactionClient, "attachmentUploadReservation">,
+  classId: string,
+  teacherId: string,
+) {
+  const reservations = await client.attachmentUploadReservation.findMany({
+    where: {
+      expiresAt: { gt: new Date() },
+      OR: [{ classId }, { teacherId }],
+    },
+    select: { classId: true, teacherId: true, size: true },
+  });
+  const pending = { classCount: 0, classBytes: 0, teacherBytes: 0 };
+  for (const reservation of reservations) {
+    if (reservation.classId === classId) {
+      pending.classCount++;
+      pending.classBytes += reservation.size;
+    }
+    if (reservation.teacherId === teacherId)
+      pending.teacherBytes += reservation.size;
+  }
+  return pending;
+}
+async function reserveAttachmentUpload(
+  classId: string,
+  teacherId: string,
+  size: number,
+) {
+  return db.$transaction(async (tx) => {
+    const users = await tx.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "User" WHERE "id" = ${teacherId} FOR UPDATE
+    `;
+    const classes = await tx.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "Class"
+      WHERE "id" = ${classId} AND "teacherId" = ${teacherId}
+      FOR UPDATE
+    `;
+    if (!users.length || !classes.length) throw Error();
+    const pending = await activeAttachmentReservations(tx, classId, teacherId);
+    await requireAttachmentCapacity(tx, classId, teacherId, size, pending);
+    return tx.attachmentUploadReservation.create({
+      data: {
+        classId,
+        teacherId,
+        size,
+        expiresAt: new Date(Date.now() + ATTACHMENT_UPLOAD_RESERVATION_MS),
+      },
+    });
+  });
 }
 function message(e: unknown) {
   return e instanceof z.ZodError
@@ -247,22 +329,30 @@ export async function mutate(
       const code = text(20).parse(form.get("code")).toUpperCase();
       const ip = requestIp(await headers());
       await rateLimit(`join:ip:${hashIdentifier(ip)}`, 30, 60000);
-      const cls = await db.class.findUnique({ where: { code } });
-      if (!cls) {
+      const joined = await db.$transaction(async (tx) => {
+        const classes = await tx.$queryRaw<{ id: string }[]>`
+          SELECT "id" FROM "Class" WHERE "code" = ${code} FOR UPDATE
+        `;
+        const cls = classes[0];
+        if (!cls) return { status: "invalid" } as const;
+        const existingMember = await tx.classMember.findUnique({
+          where: { userId_classId: { userId: user.id, classId: cls.id } },
+        });
+        if (existingMember?.removedAt) return { status: "removed" } as const;
+        await tx.classMember.upsert({
+          where: { userId_classId: { userId: user.id, classId: cls.id } },
+          create: { userId: user.id, classId: cls.id },
+          update: {},
+        });
+        return { status: "joined", classId: cls.id } as const;
+      });
+      if (joined.status === "invalid") {
         await rateLimit(`join:code:${hashIdentifier(code)}`, 20, 60000);
         return { error: "클래스 코드를 확인해 주세요." };
       }
-      const existingMember = await db.classMember.findUnique({
-        where: { userId_classId: { userId: user.id, classId: cls.id } },
-      });
-      if (existingMember?.removedAt)
+      if (joined.status === "removed")
         return { error: "이 클래스에 다시 참여할 수 없습니다." };
-      await db.classMember.upsert({
-        where: { userId_classId: { userId: user.id, classId: cls.id } },
-        create: { userId: user.id, classId: cls.id },
-        update: {},
-      });
-      target = `/student/classes/${cls.id}`;
+      target = `/student/classes/${joined.classId}`;
     } else if (op === "class") {
       if (user.role !== "TEACHER") throw Error();
       const data = z.object({ name: text(80), subject: text(40) }).parse(raw);
@@ -367,78 +457,80 @@ export async function mutate(
           data,
         };
       }
-      const attachmentScan = attachment
-        ? await scanAttachmentData(attachment.data)
+      const reservation = attachment
+        ? await reserveAttachmentUpload(classId, user.id, attachment.size)
         : null;
-      if (attachmentScan?.status === "INFECTED")
-        return {
-          error: "안전하지 않은 첨부파일로 판단되어 업로드할 수 없습니다.",
-        };
-      const result = await db.$transaction(async (tx) => {
-        const a = id
-          ? await tx.assignment.update({ where: { id }, data })
-          : await tx.assignment.create({ data: { ...data, classId } });
-        if (attachment && attachmentScan) {
-          await tx.$queryRaw`
-            SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE
-          `;
-          await tx.$queryRaw`
-            SELECT "id" FROM "Class" WHERE "id" = ${classId} FOR UPDATE
-          `;
-          const where = { assignment: { classId } };
-          const count = await tx.attachment.count({ where });
-          const total = await tx.attachment.aggregate({
-            where,
-            _sum: { size: true },
-          });
-          if (count >= MAX_ATTACHMENTS_PER_CLASS)
-            throw new ActionError("클래스 첨부파일 개수 한도에 도달했습니다.");
-          if (
-            (total._sum.size ?? 0) + attachment.size >
-            MAX_ATTACHMENT_BYTES_PER_CLASS
-          )
-            throw new ActionError(
-              "클래스 첨부파일 총용량 한도에 도달했습니다.",
-            );
-          const teacherWhere = {
-            assignment: { class: { teacherId: user.id } },
+      try {
+        const attachmentScan = attachment
+          ? await scanAttachmentData(attachment.data)
+          : null;
+        if (attachmentScan?.status === "INFECTED")
+          return {
+            error: "안전하지 않은 첨부파일로 판단되어 업로드할 수 없습니다.",
           };
-          const teacherTotal = await tx.attachment.aggregate({
-            where: teacherWhere,
-            _sum: { size: true },
-          });
-          if (
-            (teacherTotal._sum.size ?? 0) + attachment.size >
-            MAX_ATTACHMENT_BYTES_PER_TEACHER
-          )
-            throw new ActionError(
-              "선생님별 첨부파일 총용량 한도에 도달했습니다.",
+        const result = await db.$transaction(async (tx) => {
+          if (attachment && attachmentScan && reservation) {
+            await tx.$queryRaw`
+              SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE
+            `;
+            await tx.$queryRaw`
+              SELECT "id" FROM "Class" WHERE "id" = ${classId} FOR UPDATE
+            `;
+            const released = await tx.attachmentUploadReservation.deleteMany({
+              where: { id: reservation.id, classId, teacherId: user.id },
+            });
+            if (!released.count)
+              throw new ActionError(
+                "첨부파일 검사 예약이 만료되었습니다. 다시 시도해 주세요.",
+              );
+            const pending = await activeAttachmentReservations(
+              tx,
+              classId,
+              user.id,
             );
-          await tx.attachment.create({
-            data: {
-              ...attachment,
-              assignmentId: a.id,
-              scanStatus:
-                attachmentScan.status === "CLEAN"
-                  ? "CLEAN"
-                  : attachmentScan.status === "ERROR"
-                    ? "SCAN_ERROR"
-                    : "QUARANTINED",
-              scannedAt:
-                attachmentScan.status === "UNAVAILABLE" ? null : new Date(),
-              scanEngine: attachmentScan.engine,
-            },
-          });
+            await requireAttachmentCapacity(
+              tx,
+              classId,
+              user.id,
+              attachment.size,
+              pending,
+            );
+          }
+          const a = id
+            ? await tx.assignment.update({ where: { id }, data })
+            : await tx.assignment.create({ data: { ...data, classId } });
+          if (attachment && attachmentScan) {
+            await tx.attachment.create({
+              data: {
+                ...attachment,
+                assignmentId: a.id,
+                scanStatus:
+                  attachmentScan.status === "CLEAN"
+                    ? "CLEAN"
+                    : attachmentScan.status === "ERROR"
+                      ? "SCAN_ERROR"
+                      : "QUARANTINED",
+                scannedAt:
+                  attachmentScan.status === "UNAVAILABLE" ? null : new Date(),
+                scanEngine: attachmentScan.engine,
+              },
+            });
+          }
+          return a;
+        });
+        if (attachmentScan && attachmentScan.status !== "CLEAN") {
+          successMessage =
+            attachmentScan.status === "UNAVAILABLE"
+              ? "과제를 저장했습니다. 첨부파일은 검사 서비스가 없어 검사 대기 상태로 보관되었습니다."
+              : "과제를 저장했습니다. 첨부파일 검사에 실패해 검사 대기 상태로 보관되었습니다.";
+        } else {
+          target = `/teacher/assignments/${result.id}`;
         }
-        return a;
-      });
-      if (attachmentScan && attachmentScan.status !== "CLEAN") {
-        successMessage =
-          attachmentScan.status === "UNAVAILABLE"
-            ? "과제를 저장했습니다. 첨부파일은 검사 서비스가 없어 검사 대기 상태로 보관되었습니다."
-            : "과제를 저장했습니다. 첨부파일 검사에 실패해 검사 대기 상태로 보관되었습니다.";
-      } else {
-        target = `/teacher/assignments/${result.id}`;
+      } finally {
+        if (reservation)
+          await db.attachmentUploadReservation
+            .deleteMany({ where: { id: reservation.id } })
+            .catch(() => undefined);
       }
     } else if (op === "delete" || op === "assignment-archive") {
       const id = text(50).parse(form.get("id"));

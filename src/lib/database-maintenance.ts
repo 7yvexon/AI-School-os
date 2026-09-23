@@ -13,7 +13,7 @@ export async function cleanupExpiredRecords(
 
   // Index-backed batches limit lock duration. Concurrent maintenance workers skip
   // rows already being cleaned instead of competing for the same locks.
-  const [sessions, rateLimits] = await db.$transaction([
+  const [sessions, rateLimits, uploadReservations] = await db.$transaction([
     db.$executeRaw`
       WITH expired AS (
         SELECT "id" FROM "Session"
@@ -36,6 +36,17 @@ export async function cleanupExpiredRecords(
       DELETE FROM "RateLimit"
       USING expired
       WHERE "RateLimit"."key" = expired."key"`,
+    db.$executeRaw`
+      WITH expired AS (
+        SELECT "id" FROM "AttachmentUploadReservation"
+        WHERE "expiresAt" <= ${now}
+        ORDER BY "expiresAt", "id"
+        LIMIT ${batchSize}
+        FOR UPDATE SKIP LOCKED
+      )
+      DELETE FROM "AttachmentUploadReservation"
+      USING expired
+      WHERE "AttachmentUploadReservation"."id" = expired."id"`,
   ]);
-  return { sessions, rateLimits };
+  return { sessions, rateLimits, uploadReservations };
 }

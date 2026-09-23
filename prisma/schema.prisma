@@ -48,28 +48,29 @@ enum AttachmentScanStatus {
 }
 
 model User {
-  id                String               @id @default(cuid())
-  email             String               @unique
-  passwordHash      String
-  name              String
-  role              Role
-  plan              Plan                 @default(FREE)
-  school            String               @default("")
-  grade             String               @default("")
-  classroom         String               @default("")
-  phone             String               @default("")
-  createdAt         DateTime             @default(now())
-  sessions          Session[]
-  classes           Class[]
-  memberships       ClassMember[]
-  progress          AssignmentProgress[]
-  submissions       Submission[]
-  submissionReviews SubmissionReview[]
-  conversations     AIConversation[]
-  usage             AIUsage[]
-  events            PersonalEvent[]
-  teacherApprovedAt DateTime?
-  aiConsentAt       DateTime?
+  id                 String                        @id @default(cuid())
+  email              String                        @unique
+  passwordHash       String
+  name               String
+  role               Role
+  plan               Plan                          @default(FREE)
+  school             String                        @default("")
+  grade              String                        @default("")
+  classroom          String                        @default("")
+  phone              String                        @default("")
+  createdAt          DateTime                      @default(now())
+  sessions           Session[]
+  classes            Class[]
+  memberships        ClassMember[]
+  progress           AssignmentProgress[]
+  submissions        Submission[]
+  submissionReviews  SubmissionReview[]
+  conversations      AIConversation[]
+  usage              AIUsage[]
+  events             PersonalEvent[]
+  uploadReservations AttachmentUploadReservation[]
+  teacherApprovedAt  DateTime?
+  aiConsentAt        DateTime?
 }
 
 model Session {
@@ -83,15 +84,16 @@ model Session {
 }
 
 model Class {
-  id          String        @id @default(cuid())
-  name        String
-  subject     String
-  code        String        @unique
-  teacherId   String
-  teacher     User          @relation(fields: [teacherId], references: [id], onDelete: Restrict)
-  members     ClassMember[]
-  assignments Assignment[]
-  createdAt   DateTime      @default(now())
+  id                 String                        @id @default(cuid())
+  name               String
+  subject            String
+  code               String                        @unique
+  teacherId          String
+  teacher            User                          @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  members            ClassMember[]
+  assignments        Assignment[]
+  uploadReservations AttachmentUploadReservation[]
+  createdAt          DateTime                      @default(now())
 
   @@index([teacherId])
 }
@@ -238,6 +240,20 @@ model Attachment {
   data         Bytes
 
   @@index([assignmentId])
+}
+
+model AttachmentUploadReservation {
+  id        String   @id @default(cuid())
+  classId   String
+  teacherId String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher   User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  size      Int
+  expiresAt DateTime
+
+  @@index([classId, expiresAt])
+  @@index([teacherId, expiresAt])
+  @@index([expiresAt])
 }
 
 model RateLimit {

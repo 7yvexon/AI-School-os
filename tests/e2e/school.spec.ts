@@ -1,7 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import bcrypt from "bcryptjs";
 import { dayKey } from "../../src/lib/domain";
+import { createClassCode } from "../../src/lib/class-code";
+import { cleanupExpiredRecords } from "../../src/lib/database-maintenance";
+import {
+  MAX_AI_GLOBAL_REQUESTS_PER_DAY,
+  MAX_ATTACHMENTS_PER_CLASS,
+} from "../../src/lib/limits";
 const db = new PrismaClient();
 const e2eTestPassword =
   process.env.E2E_TEST_PASSWORD ?? randomBytes(24).toString("base64url");
@@ -84,6 +92,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await expect(teacher.locator(".class-code")).toBeVisible();
   const code = await teacher.locator(".class-code").innerText();
   const classUrl = teacher.url();
+  const classId = classUrl.split("/").at(-1)!;
   await teacher.getByRole("link", { name: "과제 등록", exact: true }).click();
   await teacher.getByLabel("제목", { exact: true }).fill("E2E 탐구 과제");
   await teacher.getByLabel("종류", { exact: true }).selectOption("ASSESSMENT");
@@ -135,6 +144,68 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   expect((await studentContext.request.get(attachmentHref!)).status()).toBe(
     200,
   );
+  await db.attachment.createMany({
+    data: Array.from({ length: MAX_ATTACHMENTS_PER_CLASS - 1 }, (_, i) => ({
+      assignmentId,
+      name: `quota-${stamp}-${i}.txt`,
+      mime: "text/plain",
+      size: 1,
+      data: Buffer.from("x"),
+      scanStatus: "CLEAN" as const,
+    })),
+  });
+  await teacher.goto(`/teacher/assignments/${assignmentId}/edit`);
+  await teacher.getByLabel("첨부파일", { exact: false }).setInputFiles({
+    name: "quota-overflow.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("x"),
+  });
+  await teacher.getByRole("button", { name: "저장하기" }).click();
+  await expect(teacher.locator(".alert-error")).toContainText(
+    "클래스 첨부파일 개수 한도",
+  );
+  expect(await db.attachment.count({ where: { assignmentId } })).toBe(
+    MAX_ATTACHMENTS_PER_CLASS,
+  );
+  expect(
+    await db.attachmentUploadReservation.count({ where: { classId } }),
+  ).toBe(0);
+  await db.attachment.deleteMany({
+    where: { assignmentId, name: `quota-${stamp}-0.txt` },
+  });
+  const owner = await db.user.findUniqueOrThrow({
+    where: { email: `teacher-${stamp}@example.com` },
+  });
+  const reservation = await db.attachmentUploadReservation.create({
+    data: {
+      classId,
+      teacherId: owner.id,
+      size: 1,
+      expiresAt: new Date(Date.now() + 120000),
+    },
+  });
+  await teacher.getByLabel("첨부파일", { exact: false }).setInputFiles({
+    name: "quota-overflow.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("x"),
+  });
+  await teacher.getByRole("button", { name: "저장하기" }).click();
+  await expect(teacher.locator(".alert-error")).toContainText(
+    "클래스 첨부파일 개수 한도",
+  );
+  expect(await db.attachment.count({ where: { assignmentId } })).toBe(
+    MAX_ATTACHMENTS_PER_CLASS - 1,
+  );
+  expect(
+    await db.attachmentUploadReservation.count({ where: { classId } }),
+  ).toBe(1);
+  await db.attachment.deleteMany({
+    where: { assignmentId, name: { startsWith: `quota-${stamp}-` } },
+  });
+  await db.attachmentUploadReservation.delete({
+    where: { id: reservation.id },
+  });
+  await teacher.goto(`/teacher/assignments/${assignmentId}`);
   await student
     .getByLabel("제출 내용", { exact: true })
     .fill("주제를 정하고 참고 자료를 비교해 본 탐구 결과입니다.");
@@ -239,11 +310,17 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
       headers: { origin },
       data: { assignmentId, message },
     });
+  const globalUsage = () =>
+    db.rateLimit.findFirstOrThrow({
+      where: { key: { startsWith: "ai:global:" } },
+      select: { key: true, count: true },
+    });
   expect((await request("test", "https://foreign.example")).status()).toBe(403);
   expect((await request("FAIL_PROVIDER")).status()).toBe(502);
   expect(
     (await db.aIUsage.findUniqueOrThrow({ where: { id: usage.id } })).count,
   ).toBe(2);
+  expect((await globalUsage()).count).toBe(2);
   await db.aIUsage.update({ where: { id: usage.id }, data: { count: 9 } });
   const responses = await Promise.all([
     request("첫 질문"),
@@ -254,7 +331,28 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   expect(
     (await db.aIUsage.findUniqueOrThrow({ where: { id: usage.id } })).count,
   ).toBe(10);
+  expect((await globalUsage()).count).toBe(3);
   expect((await request("마지막 질문")).status()).toBe(429);
+  expect((await globalUsage()).count).toBe(3);
+  await db.rateLimit.deleteMany({
+    where: {
+      key: { startsWith: "ai:" },
+      NOT: { key: { startsWith: "ai:global:" } },
+    },
+  });
+  await db.aIUsage.update({ where: { id: usage.id }, data: { count: 9 } });
+  const global = await globalUsage();
+  await db.rateLimit.update({
+    where: { key: global.key },
+    data: { count: MAX_AI_GLOBAL_REQUESTS_PER_DAY },
+  });
+  const globallyLimited = await request("전역 한도 확인");
+  expect(globallyLimited.status()).toBe(429);
+  expect(globallyLimited.headers()["retry-after"]).toBeTruthy();
+  expect((await globalUsage()).count).toBe(MAX_AI_GLOBAL_REQUESTS_PER_DAY);
+  expect(
+    (await db.aIUsage.findUniqueOrThrow({ where: { id: usage.id } })).count,
+  ).toBe(9);
   await expect(
     student.getByRole("button", { name: "완료됨 · 취소하기" }),
   ).toBeVisible();
@@ -402,6 +500,48 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await expect(
     teacher.getByText("참여 학생 1명", { exact: true }),
   ).toBeVisible();
+  await outsider.goto("/student/classes");
+  await outsider.getByLabel("클래스 코드").fill(rotatedCode);
+  let joinAttempt = Promise.resolve();
+  await db.$transaction(
+    async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id" FROM "Class" WHERE "id" = ${classId} FOR UPDATE
+      `;
+      joinAttempt = outsider
+        .getByRole("button", { name: "클래스 참여", exact: true })
+        .click();
+      await expect
+        .poll(async () => {
+          const waiting = await db.$queryRaw<{ count: number }[]>`
+            SELECT count(*)::integer AS "count"
+            FROM pg_stat_activity
+            WHERE wait_event_type = 'Lock'
+              AND query LIKE '%"Class"%'
+              AND query LIKE '%"code"%'
+          `;
+          return waiting[0]?.count ?? 0;
+        })
+        .toBeGreaterThan(0);
+      await tx.class.update({
+        where: { id: classId },
+        data: { code: createClassCode() },
+      });
+    },
+    { timeout: 30000 },
+  );
+  await joinAttempt;
+  await expect(outsider.locator(".alert-error")).toContainText(
+    "클래스 코드를 확인",
+  );
+  const outsiderUser = await db.user.findUniqueOrThrow({
+    where: { email: `outsider-${stamp}@example.com` },
+  });
+  expect(
+    await db.classMember.count({
+      where: { classId, userId: outsiderUser.id },
+    }),
+  ).toBe(0);
   await expect(
     db.assignment.delete({ where: { id: assignmentId } }),
   ).rejects.toThrow();
@@ -478,4 +618,95 @@ test("landing, reduced motion and mobile navigation have usable layouts", async 
     fullPage: true,
   });
   await mobileContext.close();
+});
+
+test("quarantined attachments are rescanned across batches", async () => {
+  const stamp = Date.now();
+  const teacher = await db.user.create({
+    data: {
+      email: `scanner-${stamp}@example.com`,
+      name: "검사 테스트 선생님",
+      phone: "010-0000-0000",
+      passwordHash: await bcrypt.hash(randomBytes(24).toString("hex"), 12),
+      role: "TEACHER",
+      teacherApprovedAt: new Date(),
+    },
+  });
+  const cls = await db.class.create({
+    data: {
+      teacherId: teacher.id,
+      name: "첨부 검사 테스트",
+      subject: "탐구",
+      code: createClassCode(),
+    },
+  });
+  const assignment = await db.assignment.create({
+    data: {
+      classId: cls.id,
+      title: "재검사 테스트 과제",
+      description: "격리 파일 재검사를 확인합니다.",
+      rubric: "",
+      type: "MATERIAL",
+      dueAt: new Date(Date.now() + 7 * 86400000),
+    },
+  });
+  await db.attachment.createMany({
+    data: Array.from({ length: 30 }, (_, index) => ({
+      assignmentId: assignment.id,
+      name: `pending-${index}.txt`,
+      mime: "text/plain",
+      size: 1,
+      data: Buffer.from("x"),
+      scanStatus: "QUARANTINED" as const,
+    })),
+  });
+  const scan = (testMode: string) =>
+    spawnSync(
+      process.execPath,
+      ["--import", "tsx", "scripts/scan-quarantined.ts"],
+      {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          NODE_ENV: "test",
+          E2E_TEST_MODE: testMode,
+          CLAMAV_HOST: "",
+          CLAMAV_SOCKET: "",
+        },
+        encoding: "utf8",
+        timeout: 30000,
+        windowsHide: true,
+      },
+    );
+  const pendingRun = scan("false");
+  expect(pendingRun.status).toBe(0);
+  expect(pendingRun.stdout).toMatch(/pending=\d+/);
+  expect(
+    await db.attachment.count({
+      where: { assignmentId: assignment.id, scanStatus: "QUARANTINED" },
+    }),
+  ).toBe(30);
+  const cleanRun = scan("true");
+  expect(cleanRun.status).toBe(0);
+  expect(cleanRun.stdout).toMatch(/clean=\d+/);
+  expect(
+    await db.attachment.count({
+      where: { assignmentId: assignment.id, scanStatus: "CLEAN" },
+    }),
+  ).toBe(30);
+  const expiredReservation = await db.attachmentUploadReservation.create({
+    data: {
+      classId: cls.id,
+      teacherId: teacher.id,
+      size: 1,
+      expiresAt: new Date(Date.now() - 1000),
+    },
+  });
+  const cleaned = await cleanupExpiredRecords(db);
+  expect(cleaned.uploadReservations).toBeGreaterThan(0);
+  expect(
+    await db.attachmentUploadReservation.findUnique({
+      where: { id: expiredReservation.id },
+    }),
+  ).toBeNull();
 });
