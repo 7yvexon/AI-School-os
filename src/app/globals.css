@@ -2,8 +2,8 @@
 
 :root {
   --ink: #20242c;
-  --ink-soft: #667085;
-  --muted: #697586;
+  --ink-soft: #596273;
+  --muted: #596273;
   --line: #e3e7ef;
   --line-strong: #cbd5e1;
   --paper: #f7f8fc;
@@ -392,7 +392,7 @@ button:disabled {
 }
 
 .stats-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .stat-card {
@@ -402,7 +402,7 @@ button:disabled {
 
 .stat-card .stat-label {
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .stat-card .stat-value {
@@ -784,7 +784,7 @@ fieldset.field {
 
 .form-hint {
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -1542,7 +1542,8 @@ fieldset.field {
   }
 
   .assignment-meta .badge {
-    display: none;
+    display: inline-flex;
+    font-size: 11px;
   }
 
   .detail-header {
@@ -2065,14 +2066,16 @@ fieldset.field {
 }
 
 .study-auth-role-option small {
-  color: #697586;
-  font-size: 10px;
+  color: var(--ink-soft);
+  font-size: 11px;
 }
 
 .study-auth-hint {
-  color: #697586;
-  font-size: 10px;
-  line-height: 1.5;
+  display: block;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .study-auth-submit {
@@ -2252,7 +2255,7 @@ fieldset.field {
   }
 
   .study-auth-role-option small {
-    font-size: 9px;
+    font-size: 11px;
   }
 }
 
@@ -2458,12 +2461,12 @@ fieldset.field {
   border: 1px solid rgba(65, 118, 230, 0.24);
   border-radius: 9px;
   background: rgba(65, 118, 230, 0.08);
-  color: rgba(30, 35, 44, 0.72);
+  color: var(--ink-soft);
 }
 
 .study-auth-intent > span {
-  color: #3266d8;
-  font-size: 10px;
+  color: var(--blue-dark);
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2478,8 +2481,8 @@ fieldset.field {
 }
 
 .study-auth-intent small {
-  color: rgba(30, 35, 44, 0.62);
-  font-size: 11px;
+  color: var(--blue-dark);
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -2548,7 +2551,93 @@ fieldset.field {
 
 .deep-auth-page .study-auth-role-option small,
 .deep-auth-page .study-auth-hint {
-  color: rgba(30, 35, 44, 0.68);
+  color: var(--ink-soft);
+}
+
+.study-auth-intent-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.study-auth-intent-actions .btn {
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.study-auth-copy-status {
+  color: var(--blue-dark);
+}
+
+.study-auth-recovery {
+  display: block;
+}
+
+.pending-prompt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+  border-color: var(--blue-border);
+  background: var(--blue-soft);
+}
+
+.pending-prompt__mode {
+  margin: 0 0 6px;
+  color: var(--blue-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pending-prompt__body h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.pending-prompt__text {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.pending-prompt__hint {
+  margin: 0;
+  color: var(--blue-dark);
+  font-size: 13px;
+}
+
+.pending-prompt__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pending-prompt__status {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--blue-dark);
+  font-size: 12px;
+}
+
+.dashboard-review-queue {
+  margin: 24px 0;
+}
+
+@media (max-width: 720px) {
+  .pending-prompt {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .pending-prompt__actions {
+    justify-content: flex-start;
+  }
 }
 
 .deep-auth-page .study-auth-submit {

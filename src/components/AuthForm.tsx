@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { useActionState, useSyncExternalStore } from "react";
+import { ArrowRight, Copy } from "lucide-react";
+import { useActionState, useState, useSyncExternalStore } from "react";
 import { authenticate, type ActionState } from "@/app/actions";
+import { PROMPT_DRAFT_KEY, PROMPT_DRAFT_MODE_KEY } from "@/lib/prompt-draft";
 import { ActionMessage } from "./ActionMessage";
 import { Logo } from "./Logo";
 import { SubmitButton } from "./SubmitButton";
@@ -12,15 +13,14 @@ const emptySubscription = () => () => {};
 const getServerPrompt = () => "";
 const getClientPrompt = () => {
   try {
-    return window.sessionStorage.getItem("ai-school-prompt") ?? "";
+    return window.sessionStorage.getItem(PROMPT_DRAFT_KEY) ?? "";
   } catch {
     return "";
   }
 };
 const getClientPromptMode = () => {
   try {
-    return window.sessionStorage.getItem("ai-school-prompt-mode") ===
-      "과제 정리"
+    return window.sessionStorage.getItem(PROMPT_DRAFT_MODE_KEY) === "과제 정리"
       ? "과제 정리"
       : "AI 학습";
   } catch {
@@ -33,6 +33,10 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     authenticate,
     {},
   );
+  const [selectedRole, setSelectedRole] = useState<"STUDENT" | "TEACHER">(
+    "STUDENT",
+  );
+  const [copyMessage, setCopyMessage] = useState("");
   const register = mode === "register";
   const pendingPrompt = useSyncExternalStore(
     emptySubscription,
@@ -44,6 +48,15 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     getClientPromptMode,
     () => "AI 학습",
   );
+
+  async function copyPendingPrompt() {
+    try {
+      await navigator.clipboard.writeText(pendingPrompt);
+      setCopyMessage("시작 문장을 복사했어요.");
+    } catch {
+      setCopyMessage("복사할 수 없어요. 문장을 직접 선택해 복사해 주세요.");
+    }
+  }
 
   return (
     <main
@@ -167,13 +180,28 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           </div>
 
           {pendingPrompt && (
-            <div className="study-auth-intent" role="status">
+            <div className="study-auth-intent">
               <span>방금 입력한 시작 문장</span>
               <p>{pendingPrompt}</p>
               <small>
-                로그인 후 {pendingPromptMode} 흐름에서 다시 붙여넣어 시작할 수
-                있어요.
+                로그인이나 가입을 마치면 대시보드에서 이어서 사용할 수 있어요.
               </small>
+              <div className="study-auth-intent-actions">
+                <span className="badge badge-blue">{pendingPromptMode}</span>
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={copyPendingPrompt}
+                >
+                  <Copy size={14} aria-hidden="true" />
+                  문장 복사
+                </button>
+              </div>
+              {copyMessage && (
+                <small className="study-auth-copy-status" role="status">
+                  {copyMessage}
+                </small>
+              )}
             </div>
           )}
 
@@ -207,6 +235,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                       name="role"
                       value="STUDENT"
                       defaultChecked
+                      onChange={() => setSelectedRole("STUDENT")}
                     />
                     <label htmlFor="student">
                       <strong>학생</strong>
@@ -220,6 +249,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                       type="radio"
                       name="role"
                       value="TEACHER"
+                      onChange={() => setSelectedRole("TEACHER")}
                     />
                     <label htmlFor="teacher">
                       <strong>선생님</strong>
@@ -228,6 +258,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                   </div>
                 </div>
               </fieldset>
+            )}
+
+            {register && selectedRole === "TEACHER" && (
+              <p className="study-auth-hint" role="status">
+                선생님 계정은 관리자 승인 후 로그인할 수 있어요.
+              </p>
             )}
 
             <div className="study-auth-field">
@@ -255,7 +291,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                   autoComplete="tel"
                   inputMode="tel"
                   placeholder="010-1234-5678"
+                  aria-describedby="phone-hint"
                 />
+                <small className="study-auth-hint" id="phone-hint">
+                  계정 확인을 위해 요청하며, AI 제공자에게는 전달하지 않습니다.
+                </small>
               </div>
             )}
 
@@ -271,6 +311,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 autoComplete={register ? "new-password" : "current-password"}
                 placeholder="10자 이상"
               />
+              {!register && (
+                <small className="study-auth-hint study-auth-recovery">
+                  비밀번호를 잊으셨나요? 현재 직접 재설정은 제공하지 않습니다.
+                  계정 복구가 필요하면 담당 선생님이나 서비스 관리자에게 문의해
+                  주세요.
+                </small>
+              )}
             </div>
 
             <SubmitButton

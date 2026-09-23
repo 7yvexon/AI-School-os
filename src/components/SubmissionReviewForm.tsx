@@ -43,8 +43,14 @@ export function SubmissionReviewForm({
   reviews?: ReviewRecord[];
 }) {
   const [state, action] = useActionState<ActionState, FormData>(mutate, {});
-  const [reviewStatus, setReviewStatus] = useState<"RETURNED" | "REVIEWED">(
-    status === "RETURNED" ? "RETURNED" : "REVIEWED",
+  const [reviewStatus, setReviewStatus] = useState<
+    "" | "RETURNED" | "REVIEWED"
+  >(
+    status === "RETURNED"
+      ? "RETURNED"
+      : status === "REVIEWED"
+        ? "REVIEWED"
+        : "",
   );
   const statusLabel =
     status === "REVIEWED"
@@ -111,13 +117,17 @@ export function SubmissionReviewForm({
               <select
                 id={`review-status-${submissionId}`}
                 name="status"
-                defaultValue={reviewStatus}
+                value={reviewStatus}
+                required
                 onChange={(event) =>
                   setReviewStatus(
-                    event.currentTarget.value as "RETURNED" | "REVIEWED",
+                    event.currentTarget.value as "" | "RETURNED" | "REVIEWED",
                   )
                 }
               >
+                <option value="" disabled>
+                  검토 결과를 선택하세요
+                </option>
                 <option value="REVIEWED">검토 완료</option>
                 <option value="RETURNED">수정 요청</option>
               </select>

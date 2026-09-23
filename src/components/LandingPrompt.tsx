@@ -3,11 +3,11 @@
 import { ArrowUpRight, MessageCircle, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-
-type PromptMode = "AI 학습" | "과제 정리";
-
-const promptStorageKey = "ai-school-prompt";
-const modeStorageKey = "ai-school-prompt-mode";
+import {
+  PROMPT_DRAFT_KEY,
+  PROMPT_DRAFT_MODE_KEY,
+  type PromptMode,
+} from "@/lib/prompt-draft";
 
 export function LandingPrompt() {
   const router = useRouter();
@@ -29,8 +29,8 @@ export function LandingPrompt() {
     }
 
     try {
-      window.sessionStorage.setItem(promptStorageKey, value);
-      window.sessionStorage.setItem(modeStorageKey, mode);
+      window.sessionStorage.setItem(PROMPT_DRAFT_KEY, value);
+      window.sessionStorage.setItem(PROMPT_DRAFT_MODE_KEY, mode);
     } catch {
       setError(
         "입력 내용을 잠시 저장하지 못했어요. 로그인 후 다시 입력해 주세요.",

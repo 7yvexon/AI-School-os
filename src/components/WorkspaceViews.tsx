@@ -32,6 +32,7 @@ import { DeleteButton } from "./DeleteButton";
 import { Chat } from "./Chat";
 import { SubmissionForm } from "./SubmissionForm";
 import { SubmissionReviewForm } from "./SubmissionReviewForm";
+import { PendingPromptNotice } from "./PendingPromptNotice";
 import { AiConsentForm } from "./AiConsentForm";
 import { RestoreButton } from "./RestoreButton";
 import { RotateClassCodeButton } from "./RotateClassCodeButton";
@@ -79,7 +80,14 @@ function scope(user: { id: string; role: Role }) {
 export async function Dashboard({ role }: { role: Role }) {
   const user = await requireUser(role);
   const base = `/${role.toLowerCase()}`;
-  const [classes, assignments, usage, events] = await Promise.all([
+  const [
+    classes,
+    assignments,
+    usage,
+    events,
+    pendingReviewCount,
+    pendingSubmissions,
+  ] = await Promise.all([
     db.class.findMany({
       where: scope(user),
       include: {
@@ -108,11 +116,54 @@ export async function Dashboard({ role }: { role: Role }) {
           orderBy: { dueAt: "asc" },
         })
       : Promise.resolve([]),
+    role === "TEACHER"
+      ? db.submission.count({
+          where: {
+            status: "SUBMITTED",
+            assignment: {
+              archivedAt: null,
+              class: { teacherId: user.id },
+            },
+          },
+        })
+      : Promise.resolve(0),
+    role === "TEACHER"
+      ? db.submission.findMany({
+          where: {
+            status: "SUBMITTED",
+            assignment: {
+              archivedAt: null,
+              class: { teacherId: user.id },
+            },
+          },
+          select: {
+            id: true,
+            submittedAt: true,
+            student: { select: { name: true } },
+            assignment: {
+              select: {
+                id: true,
+                title: true,
+                class: { select: { name: true } },
+              },
+            },
+          },
+          orderBy: { submittedAt: "asc" },
+          take: 4,
+        })
+      : Promise.resolve([]),
   ]);
-  const active = assignments.filter((a) =>
-    role === "TEACHER" ? daysLeft(a.dueAt) >= 0 : !a.progress[0]?.completed,
+  const studentActive = assignments.filter((a) => !a.progress[0]?.completed);
+  const active =
+    role === "TEACHER"
+      ? assignments.filter((a) => daysLeft(a.dueAt) >= 0)
+      : studentActive;
+  const overdue = (role === "TEACHER" ? assignments : studentActive).filter(
+    (a) => daysLeft(a.dueAt) < 0,
   );
-  const urgent = active.filter((a) => daysLeft(a.dueAt) <= 2);
+  const urgent = active.filter(
+    (a) => daysLeft(a.dueAt) >= 0 && daysLeft(a.dueAt) <= 2,
+  );
   const week = active.filter(
     (a) => daysLeft(a.dueAt) > 2 && daysLeft(a.dueAt) <= 7,
   );
@@ -125,10 +176,11 @@ export async function Dashboard({ role }: { role: Role }) {
     role === "STUDENT"
       ? [
           { label: "진행 중 과제", value: active.length, icon: BookOpen },
+          { label: "기한 지남", value: overdue.length, icon: Clock3 },
           { label: "곧 마감", value: urgent.length, icon: Clock3 },
           {
             label: "완료한 과제",
-            value: assignments.length - active.length,
+            value: assignments.length - studentActive.length,
             icon: ClipboardCheck,
           },
           {
@@ -145,8 +197,32 @@ export async function Dashboard({ role }: { role: Role }) {
             icon: Users,
           },
           { label: "진행 중 과제", value: active.length, icon: ClipboardCheck },
+          { label: "기한 지남", value: overdue.length, icon: Clock3 },
           { label: "곧 마감", value: urgent.length, icon: Clock3 },
+          {
+            label: "검토 대기",
+            value: pendingReviewCount,
+            icon: MessageCircle,
+          },
         ];
+  const sections = [
+    {
+      label: "기한 지남",
+      items: overdue,
+      empty: "기한이 지난 과제가 없어요.",
+    },
+    {
+      label: "마감 임박 · 3일 이내",
+      items: urgent,
+      empty: "3일 안에 마감하는 과제가 없어요.",
+    },
+    {
+      label: "이번 주",
+      items: week,
+      empty: "이번 주에 마감하는 과제가 없어요.",
+    },
+    { label: "나중", items: later, empty: "나중에 할 과제가 없어요." },
+  ];
   return (
     <>
       <Heading
@@ -164,14 +240,18 @@ export async function Dashboard({ role }: { role: Role }) {
         <div>
           <h2>
             {role === "STUDENT"
-              ? urgent.length
-                ? `곧 마감하는 과제가 ${urgent.length}개 있어요`
-                : "차근차근, 오늘도 한 걸음"
+              ? overdue.length
+                ? `기한이 지난 과제가 ${overdue.length}개 있어요`
+                : urgent.length
+                  ? `곧 마감하는 과제가 ${urgent.length}개 있어요`
+                  : "차근차근, 오늘도 한 걸음"
               : "좋은 수업의 시작, 하나의 클래스"}
           </h2>
           <p>
             {role === "STUDENT"
-              ? "작은 일부터 시작해 보세요. 완료한 만큼 여유가 생겨요."
+              ? overdue.length
+                ? "기한과 제출 상태를 확인하고, 먼저 살펴볼 과제를 골라 보세요."
+                : "작은 일부터 시작해 보세요. 완료한 만큼 여유가 생겨요."
               : "과제를 등록하면 참여한 학생들에게 바로 표시됩니다."}
           </p>
         </div>
@@ -196,7 +276,20 @@ export async function Dashboard({ role }: { role: Role }) {
           />
         )}
       </div>
-      <div className="grid stats-grid">
+      <PendingPromptNotice
+        role={role}
+        hasAssignments={assignments.length > 0}
+        assignmentHref={
+          role === "STUDENT"
+            ? nearest
+              ? "/student/assignments/" + nearest.id + "#chat"
+              : assignments.length
+                ? "/student/ai"
+                : undefined
+            : undefined
+        }
+      />
+      <div className="grid stats-grid stats-grid--dashboard">
         {stats.map((s) => (
           <div className="card stat-card" key={s.label}>
             <div className="stat-icon">
@@ -207,19 +300,72 @@ export async function Dashboard({ role }: { role: Role }) {
           </div>
         ))}
       </div>
+      {role === "TEACHER" && pendingReviewCount > 0 && (
+        <section
+          className="dashboard-review-queue"
+          aria-labelledby="dashboard-review-title"
+        >
+          <div className="section-heading">
+            <div>
+              <h2 id="dashboard-review-title">
+                검토 대기 제출{" "}
+                <span className="count">{pendingReviewCount}</span>
+              </h2>
+              <p>학생이 제출한 과제에 피드백을 남겨 주세요.</p>
+            </div>
+            <Link className="text-link" href="/teacher/assignments">
+              과제 관리 보기 <ArrowUpRight size={13} aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="assignment-list">
+            {pendingSubmissions.map((submission) => (
+              <Link
+                className="assignment-row"
+                href={
+                  "/teacher/assignments/" +
+                  submission.assignment.id +
+                  "#submission-review"
+                }
+                key={submission.id}
+              >
+                <div className="assignment-date">
+                  <strong>
+                    {new Intl.DateTimeFormat("ko-KR", {
+                      day: "numeric",
+                      timeZone: "Asia/Seoul",
+                    }).format(submission.submittedAt)}
+                  </strong>
+                  <small>
+                    {new Intl.DateTimeFormat("ko-KR", {
+                      month: "short",
+                      timeZone: "Asia/Seoul",
+                    }).format(submission.submittedAt)}
+                  </small>
+                </div>
+                <div className="assignment-main">
+                  <h3>{submission.assignment.title}</h3>
+                  <p>
+                    {submission.student.name} ·{" "}
+                    {submission.assignment.class.name}
+                  </p>
+                </div>
+                <div className="assignment-meta">
+                  <span className="badge badge-blue">검토 대기</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="dashboard-grid">
         <div>
-          {[
-            ["긴급 · 오늘 먼저 확인", urgent],
-            ["이번 주", week],
-            ["나중", later],
-          ].map(([label, list]) => {
-            const items = list as typeof assignments;
+          {sections.map((section) => {
+            const items = section.items;
             return (
-              <section key={String(label)}>
+              <section key={section.label}>
                 <div className="section-heading">
                   <h2>
-                    {String(label)}{" "}
+                    {section.label}{" "}
                     <span className="count">{items.length}</span>
                   </h2>
                   <Link className="text-link" href={`${base}/assignments`}>
@@ -237,7 +383,7 @@ export async function Dashboard({ role }: { role: Role }) {
                     ))}
                   </div>
                 ) : (
-                  <Empty>해당하는 과제가 없어요.</Empty>
+                  <Empty>{section.empty}</Empty>
                 )}
               </section>
             );
@@ -854,6 +1000,7 @@ export async function AssignmentDetail({
           <div id="chat" style={{ marginTop: 24 }}>
             {user.aiConsentAt ? (
               <Chat
+                key={id}
                 assignmentId={id}
                 initialMessages={[...(conversation?.messages ?? [])]
                   .reverse()
@@ -904,7 +1051,7 @@ export async function AssignmentDetail({
               <p className="page-subtitle">아직 참여한 학생이 없습니다.</p>
             )}
           </div>
-          <div className="section-heading">
+          <div className="section-heading" id="submission-review">
             <div>
               <h2>제출물 검토</h2>
               <p>{submissions.length}명이 제출한 내용을 확인하세요.</p>

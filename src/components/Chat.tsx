@@ -1,7 +1,13 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MessageCircle, Send } from "lucide-react";
 import { readChatResponse, type ChatApiMessage } from "@/lib/chat-api";
+import {
+  PROMPT_DRAFT_KEY,
+  PROMPT_DRAFT_MODE_KEY,
+  getPromptDraft,
+  subscribePromptDraft,
+} from "@/lib/prompt-draft";
 type Message = ChatApiMessage;
 export function Chat({
   assignmentId,
@@ -17,10 +23,18 @@ export function Chat({
   limit: number;
 }) {
   const [messages, setMessages] = useState(initialMessages);
-  const [question, setQuestion] = useState("");
+  const [editedQuestion, setEditedQuestion] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [used, setUsed] = useState(initialUsed);
+  const [hasConsumedDraft, setHasConsumedDraft] = useState(false);
+  const pendingPrompt = useSyncExternalStore(
+    subscribePromptDraft,
+    getPromptDraft,
+    () => "",
+  );
+  const question = editedQuestion ?? pendingPrompt;
+  const hasPendingDraft = Boolean(pendingPrompt) && !hasConsumedDraft;
   const end = useRef<HTMLDivElement>(null);
   const limitReached = used >= limit;
   useEffect(() => {
@@ -47,8 +61,17 @@ export function Chat({
         { id: crypto.randomUUID(), role: "user", content },
         data.message,
       ]);
-      setQuestion("");
+      setEditedQuestion("");
       setUsed(data.used);
+      if (hasPendingDraft) {
+        try {
+          window.sessionStorage.removeItem(PROMPT_DRAFT_KEY);
+          window.sessionStorage.removeItem(PROMPT_DRAFT_MODE_KEY);
+        } catch {
+          setError("질문은 전송했지만 저장된 시작 문장을 지우지 못했어요.");
+        }
+        setHasConsumedDraft(true);
+      }
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "네트워크 연결을 확인해 주세요.",
@@ -84,7 +107,7 @@ export function Chat({
               <button
                 className="suggestion"
                 key={q}
-                onClick={() => setQuestion(q)}
+                onClick={() => setEditedQuestion(q)}
                 disabled={!configured}
               >
                 {q}
@@ -124,7 +147,7 @@ export function Chat({
           aria-label="AI에게 질문"
           aria-describedby={limitReached ? "chat-limit" : undefined}
           value={question}
-          onChange={(e) => setQuestion(e.target.value)}
+          onChange={(e) => setEditedQuestion(e.target.value)}
           maxLength={2000}
           placeholder="과제에 대해 궁금한 점을 물어보세요"
           disabled={!configured || busy || limitReached}
