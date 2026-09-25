@@ -24,10 +24,20 @@ export function AssignmentForm({
 }) {
   const [state, action] = useActionState<ActionState, FormData>(mutate, {});
   const form = useRef<HTMLFormElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (state.error && state.values)
       form.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
   }, [state.error, state.values]);
+  useEffect(() => {
+    const currentForm = form.current;
+    if (!currentForm) return;
+    const omitEmptyFile = (event: FormDataEvent) => {
+      if (!fileInput.current?.files?.length) event.formData.delete("file");
+    };
+    currentForm.addEventListener("formdata", omitEmptyFile);
+    return () => currentForm.removeEventListener("formdata", omitEmptyFile);
+  }, []);
   const dueAt = state.values?.dueAt ?? assignment?.dueAt;
   const date = dueAt
     ? typeof dueAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueAt)
@@ -113,6 +123,7 @@ export function AssignmentForm({
             추가됩니다.
           </span>
           <input
+            ref={fileInput}
             id="file"
             name="file"
             type="file"
