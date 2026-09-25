@@ -73,6 +73,14 @@ export type ActionState = {
   values?: Record<string, string>;
 };
 class ActionError extends Error {}
+function isEmptyFileInput(value: unknown) {
+  return (
+    value instanceof File &&
+    value.name === "blob" &&
+    value.type === "application/octet-stream" &&
+    value.size === 0
+  );
+}
 function isUniqueConstraintError(e: unknown) {
   return (
     typeof e === "object" && e !== null && "code" in e && e.code === "P2002"
@@ -458,7 +466,7 @@ export async function mutate(
         | undefined;
       if (file !== null && !(file instanceof File))
         throw new ActionError("첨부파일을 확인해 주세요.");
-      if (file instanceof File && file.name) {
+      if (file instanceof File && file.name && !isEmptyFileInput(file)) {
         if (
           !Number.isSafeInteger(file.size) ||
           file.size > MAX_ATTACHMENT_BYTES
@@ -856,7 +864,8 @@ export async function mutate(
         dueAt: readValue("dueAt", 10),
       };
       const file = form.get("file");
-      const fileSelected = file instanceof File && file.name.length > 0;
+      const fileSelected =
+        file instanceof File && file.name.length > 0 && !isEmptyFileInput(file);
       return {
         error: `${message(e)}${fileSelected ? " 첨부파일은 다시 선택해 주세요." : ""}`,
         values,
