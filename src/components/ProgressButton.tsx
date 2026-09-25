@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { Check, Star } from "lucide-react";
 import { mutate, type ActionState } from "@/app/actions";
 export function ProgressButton({
@@ -17,6 +17,14 @@ export function ProgressButton({
     mutate,
     {},
   );
+  const button = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  useEffect(() => {
+    if (!pending && restoreFocus.current) {
+      restoreFocus.current = false;
+      button.current?.focus();
+    }
+  }, [pending]);
   const accessibleLabel =
     label ??
     (field === "completed"
@@ -33,6 +41,7 @@ export function ProgressButton({
       <input type="hidden" name="field" value={field} />
       <input type="hidden" name="value" value={String(!value)} />
       <button
+        ref={button}
         className={
           field === "completed" ? "btn btn-secondary" : "btn btn-ghost"
         }
@@ -41,6 +50,9 @@ export function ProgressButton({
         aria-pressed={value}
         aria-busy={pending}
         disabled={pending}
+        onClick={() => {
+          restoreFocus.current = document.activeElement === button.current;
+        }}
         type="submit"
       >
         {field === "completed" ? (
@@ -61,6 +73,11 @@ export function ProgressButton({
           />
         )}
       </button>
+      {state.success && (
+        <span className="sr-only" role="status">
+          {state.success}
+        </span>
+      )}
       {state.error && (
         <span
           className="form-hint"

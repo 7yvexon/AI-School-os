@@ -10,7 +10,16 @@ import {
 } from "lucide-react";
 import { LandingPrompt } from "@/components/LandingPrompt";
 import { Logo } from "@/components/Logo";
+import { pageMetadata } from "@/lib/page-metadata";
 import "./landing.css";
+
+export const metadata = {
+  ...pageMetadata(
+    "학교 과제와 학습 관리",
+    "학생과 선생님이 과제, 일정, 제출과 피드백을 관리하고 AI 학습 도우미를 이용하는 학교 학습 공간.",
+  ),
+  alternates: { canonical: "/" },
+};
 
 const flowLines = [
   "deep-flow-line--one",
@@ -53,7 +62,7 @@ const footerGroups = [
     links: [
       ["서비스 안내", "#prompt"],
       ["GitHub에서 문의하기", "https://github.com/7yvexon/AI-School-os/issues"],
-      ["개인정보 보호", "#footer"],
+      ["개인정보 안내", "/privacy"],
     ],
   },
 ] as const;
@@ -84,7 +93,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section className="deep-hero" aria-labelledby="hero-title">
           <div className="deep-hero__scene" aria-hidden="true">
             <div className="deep-flow-field">
@@ -110,19 +119,20 @@ export default function Home() {
               <strong>다음 장면으로</strong>
             </h1>
             <p className="deep-hero__lead">
-              오늘 해야 할 일을 적어 주세요.
+              과제·일정·제출과 선생님 피드백을 한곳에서 관리하고,
               <br />
-              AI School OS가 지금 가능한 다음 한 걸음을 함께 찾습니다.
+              AI 학습 도우미로 과제의 다음 단계를 찾아보세요.
             </p>
 
             <LandingPrompt />
 
             <div className="deep-hero__actions">
               <Link className="deep-hero__primary" href="/register">
-                AI 학습 시작하기 <ArrowUpRight size={16} aria-hidden="true" />
+                계정 만들고 시작하기{" "}
+                <ArrowUpRight size={16} aria-hidden="true" />
               </Link>
               <Link className="deep-hero__secondary" href="/login">
-                선생님 공간으로
+                이미 계정이 있나요? 로그인
               </Link>
             </div>
             <p className="deep-hero__caption">
@@ -156,8 +166,12 @@ export default function Home() {
             <span>AI School OS · MVP</span>
           </div>
           {footerGroups.map((group) => (
-            <div className="deep-footer__group" key={group.title}>
-              <strong>{group.title}</strong>
+            <nav
+              className="deep-footer__group"
+              aria-label={group.title}
+              key={group.title}
+            >
+              <h2>{group.title}</h2>
               {group.links.map(([label, href]) =>
                 href.startsWith("http") ? (
                   <a href={href} key={label} target="_blank" rel="noreferrer">
@@ -169,7 +183,7 @@ export default function Home() {
                   </Link>
                 ),
               )}
-            </div>
+            </nav>
           ))}
         </div>
         <div className="deep-footer__bottom">

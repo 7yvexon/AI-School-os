@@ -14,10 +14,12 @@ import {
 export function PendingPromptNotice({
   role,
   hasAssignments,
+  hasClasses,
   assignmentHref,
 }: {
   role: "STUDENT" | "TEACHER";
   hasAssignments: boolean;
+  hasClasses: boolean;
   assignmentHref?: string;
 }) {
   const [dismissed, setDismissed] = useState(false);
@@ -68,7 +70,7 @@ export function PendingPromptNotice({
         <p className="pending-prompt__text">{prompt}</p>
         <p className="pending-prompt__hint">
           {role === "STUDENT"
-            ? "과제를 열면 동의 후 질문 입력란에 문장이 채워집니다. 질문을 보내기 전에는 AI 제공자에게 전달되지 않습니다."
+            ? "이 문장은 현재 브라우저 탭에만 임시 저장됩니다. 로그인 또는 가입 후 클래스에 참여하고, AI 사용에 동의하면 과제 질문으로 이어 쓸 수 있어요."
             : "이 문장은 학생용 과제 AI 흐름에서 사용할 수 있어요. 필요하면 복사해 두거나 지워 주세요."}
         </p>
       </div>
@@ -79,10 +81,16 @@ export function PendingPromptNotice({
             href={
               hasAssignments && assignmentHref
                 ? assignmentHref
-                : "/student/classes"
+                : hasClasses
+                  ? "/student/assignments"
+                  : "/student/classes"
             }
           >
-            {hasAssignments ? "과제에서 이어 쓰기" : "클래스 참여하기"}
+            {hasAssignments
+              ? "과제에서 이어 쓰기"
+              : hasClasses
+                ? "과제 목록 보기"
+                : "클래스 참여하기"}
             <ArrowRight size={15} aria-hidden="true" />
           </Link>
         )}

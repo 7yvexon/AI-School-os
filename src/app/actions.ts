@@ -11,6 +11,7 @@ import { ownedClass, accessibleAssignment } from "@/lib/access";
 import { rateLimit, RateLimitError } from "@/lib/rate-limit";
 import { hashIdentifier, requestIp } from "@/lib/request";
 import { createClassCode } from "@/lib/class-code";
+import { aiProviderKey } from "@/lib/ai";
 import { scanAttachmentData } from "@/lib/attachment-scanner";
 import {
   attachmentDataSizeAllowed,
@@ -57,6 +58,7 @@ const operation = z.enum([
   "attachment-delete",
   "progress",
   "event",
+  "event-update",
   "event-delete",
 ]);
 const attachmentMime = z.enum([
@@ -65,7 +67,11 @@ const attachmentMime = z.enum([
   "image/jpeg",
   "text/plain",
 ]);
-export type ActionState = { error?: string; success?: string };
+export type ActionState = {
+  error?: string;
+  success?: string;
+  values?: Record<string, string>;
+};
 class ActionError extends Error {}
 function isUniqueConstraintError(e: unknown) {
   return (
@@ -219,18 +225,7 @@ export async function authenticate(
           .max(254)
           .transform((v) => v.toLowerCase()),
       })
-      .extend(
-        mode === "login"
-          ? { password: passwordSchema }
-          : {
-              password: passwordSchema,
-              phone: z
-                .string()
-                .trim()
-                .min(3, "전화번호를 입력해 주세요.")
-                .max(32, "전화번호를 확인해 주세요."),
-            },
-      )
+      .extend({ password: passwordSchema })
       .parse(Object.fromEntries(form));
     const submittedPassword = "password" in data ? data.password : undefined;
     const ip = requestIp(await headers());
@@ -248,17 +243,10 @@ export async function authenticate(
       const profile = z
         .object({ name: text(40), role: z.enum(["STUDENT", "TEACHER"]) })
         .parse(Object.fromEntries(form));
-      const phone = z
-        .string()
-        .trim()
-        .min(3, "전화번호를 입력해 주세요.")
-        .max(32, "전화번호를 확인해 주세요.")
-        .parse(form.get("phone"));
       user = await db.user.create({
         data: {
           ...profile,
           email: data.email,
-          phone,
           passwordHash: await bcrypt.hash(
             passwordSchema.parse(submittedPassword),
             12,
@@ -286,13 +274,18 @@ export async function authenticate(
       if (mode === "register")
         return {
           success:
-            "교사 가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.",
+            "교사 가입 신청이 접수되었습니다. 운영 담당자가 승인하면 로그인할 수 있습니다.",
         };
       throw new ActionError("교사 승인이 필요합니다.");
     }
     await createSession(user.id);
     target = `/${user.role.toLowerCase()}/dashboard`;
   } catch (e) {
+    if (mode === "register" && isUniqueConstraintError(e))
+      return {
+        error:
+          "가입을 완료하지 못했어요. 이 이메일로 이미 계정이 있다면 아래 로그인 링크를 이용해 주세요.",
+      };
     return { error: message(e) };
   }
   redirect(target);
@@ -326,9 +319,20 @@ export async function mutate(
       await db.user.update({ where: { id: user.id }, data });
     } else if (op === "join") {
       if (user.role !== "STUDENT") throw Error();
-      const code = text(20).parse(form.get("code")).toUpperCase();
+      const code = z
+        .string()
+        .trim()
+        .min(1, "클래스 코드를 입력해 주세요.")
+        .max(21)
+        .transform((value) => value.toUpperCase())
+        .refine(
+          (value) => /^BSS-[A-Z0-9]{6,16}$/.test(value),
+          "클래스 코드 형식을 확인해 주세요.",
+        )
+        .parse(form.get("code"));
       const ip = requestIp(await headers());
       await rateLimit(`join:ip:${hashIdentifier(ip)}`, 30, 60000);
+      await rateLimit(`join:user:${user.id}`, 20, 60000);
       const joined = await db.$transaction(async (tx) => {
         const classes = await tx.$queryRaw<{ id: string }[]>`
           SELECT "id" FROM "Class" WHERE "code" = ${code} FOR UPDATE
@@ -351,7 +355,10 @@ export async function mutate(
         return { error: "클래스 코드를 확인해 주세요." };
       }
       if (joined.status === "removed")
-        return { error: "이 클래스에 다시 참여할 수 없습니다." };
+        return {
+          error:
+            "이 계정은 이 클래스에서 제외되어 있어요. 담당 선생님에게 참여 복원을 요청해 주세요.",
+        };
       target = `/student/classes/${joined.classId}`;
     } else if (op === "class") {
       if (user.role !== "TEACHER") throw Error();
@@ -392,19 +399,36 @@ export async function mutate(
       if (result.count !== 1) throw Error();
     } else if (op === "ai-consent") {
       if (user.role !== "STUDENT") throw Error();
+      const providerKey = aiProviderKey();
+      if (!providerKey)
+        throw new ActionError("AI 제공자가 설정된 뒤에 동의할 수 있습니다.");
       await db.user.update({
         where: { id: user.id },
-        data: { aiConsentAt: new Date() },
+        data: { aiConsentAt: new Date(), aiConsentProviderKey: providerKey },
       });
+      successMessage = "AI 사용 동의를 저장했습니다.";
     } else if (op === "ai-consent-revoke") {
       if (user.role !== "STUDENT") throw Error();
       await db.user.update({
         where: { id: user.id },
-        data: { aiConsentAt: null },
+        data: { aiConsentAt: null, aiConsentProviderKey: null },
       });
+      successMessage =
+        "새 AI 요청은 차단됩니다. 이미 진행 중인 질문은 외부 제공자에게 전송될 수 있습니다.";
     } else if (op === "ai-conversations-delete") {
       if (user.role !== "STUDENT") throw Error();
-      await db.aIConversation.deleteMany({ where: { userId: user.id } });
+      await db.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE
+        `;
+        await tx.user.update({
+          where: { id: user.id },
+          data: { aiHistoryVersion: { increment: 1 } },
+        });
+        await tx.aIConversation.deleteMany({ where: { userId: user.id } });
+      });
+      successMessage =
+        "저장된 AI 대화를 삭제했습니다. 진행 중인 요청은 답변을 마친 뒤 기록되지 않으며, 다음 질문부터 새 기록이 시작됩니다.";
     } else if (op === "assignment") {
       if (user.role !== "TEACHER") throw Error();
       const classId = text(50).parse(form.get("classId"));
@@ -433,23 +457,36 @@ export async function mutate(
           }
         | undefined;
       if (file !== null && !(file instanceof File))
-        return { error: "첨부파일을 확인해 주세요." };
-      if (file instanceof File && file.size) {
+        throw new ActionError("첨부파일을 확인해 주세요.");
+      if (file instanceof File && file.name) {
         if (
           !Number.isSafeInteger(file.size) ||
           file.size > MAX_ATTACHMENT_BYTES
         )
-          return { error: "첨부파일은 5MB 이하여야 합니다." };
+          throw new ActionError("첨부파일은 5MB 이하여야 합니다.");
+        if (file.size === 0)
+          throw new ActionError("빈 첨부파일은 올릴 수 없습니다.");
         const mime = attachmentMime.safeParse(file.type);
         if (!mime.success)
-          return { error: "PDF, PNG, JPG, TXT 파일만 첨부할 수 있습니다." };
+          throw new ActionError(
+            "PDF, PNG, JPG, TXT 파일만 첨부할 수 있습니다.",
+          );
         const data = new Uint8Array(await file.arrayBuffer());
         if (data.byteLength !== file.size || !attachmentDataSizeAllowed(data))
-          return { error: "첨부파일은 5MB 이하여야 합니다." };
+          throw new ActionError("첨부파일은 5MB 이하여야 합니다.");
         const name = sanitizeAttachmentName(file.name);
-        if (!name) return { error: "첨부파일 이름을 확인해 주세요." };
+        if (!name) throw new ActionError("첨부파일 이름을 확인해 주세요.");
+        const extension = name.split(".").pop()?.toLowerCase();
+        const expectedExtensions: Record<string, string[]> = {
+          "application/pdf": ["pdf"],
+          "image/png": ["png"],
+          "image/jpeg": ["jpg", "jpeg"],
+          "text/plain": ["txt"],
+        };
+        if (!extension || !expectedExtensions[mime.data].includes(extension))
+          throw new ActionError("파일 확장자와 내용 형식이 일치하지 않습니다.");
         if (!attachmentMimeMatchesData(mime.data, data))
-          return { error: "파일 형식과 내용이 일치하지 않습니다." };
+          throw new ActionError("파일 형식과 내용이 일치하지 않습니다.");
         attachment = {
           name,
           mime: mime.data,
@@ -465,9 +502,9 @@ export async function mutate(
           ? await scanAttachmentData(attachment.data)
           : null;
         if (attachmentScan?.status === "INFECTED")
-          return {
-            error: "안전하지 않은 첨부파일로 판단되어 업로드할 수 없습니다.",
-          };
+          throw new ActionError(
+            "안전하지 않은 첨부파일로 판단되어 업로드할 수 없습니다.",
+          );
         const result = await db.$transaction(async (tx) => {
           if (attachment && attachmentScan && reservation) {
             await tx.$queryRaw`
@@ -523,9 +560,8 @@ export async function mutate(
             attachmentScan.status === "UNAVAILABLE"
               ? "과제를 저장했습니다. 첨부파일은 검사 서비스가 없어 검사 대기 상태로 보관되었습니다."
               : "과제를 저장했습니다. 첨부파일 검사에 실패해 검사 대기 상태로 보관되었습니다.";
-        } else {
-          target = `/teacher/assignments/${result.id}`;
         }
+        target = `/teacher/assignments/${result.id}`;
       } finally {
         if (reservation)
           await db.attachmentUploadReservation
@@ -596,11 +632,11 @@ export async function mutate(
         });
         if (existing?.status === "REVIEWED")
           throw new ActionError(
-            "검토가 완료된 제출물은 수정할 수 없습니다. 반려된 뒤 다시 제출해 주세요.",
+            "검토가 완료된 제출물은 수정할 수 없습니다. 선생님에게 다시 제출할 수 있는지 문의해 주세요.",
           );
         if (existing?.status === "SUBMITTED")
           throw new ActionError(
-            "검토 중인 제출물은 수정할 수 없습니다. 선생님의 검토 결과를 기다려 주세요.",
+            "검토 대기 상태인 제출물은 수정할 수 없습니다. 선생님의 검토 결과를 기다려 주세요.",
           );
         await tx.submission.upsert({
           where: {
@@ -658,8 +694,10 @@ export async function mutate(
       });
       if (!submission) throw Error();
       if (status === "RETURNED" && !feedback)
-        return { error: "반려할 때는 학생에게 전달할 의견을 입력해 주세요." };
-      await db.$transaction(async (tx) => {
+        return {
+          error: "수정 요청을 보낼 때는 학생에게 전달할 의견을 입력해 주세요.",
+        };
+      const reviewCreated = await db.$transaction(async (tx) => {
         await tx.$queryRaw`
           SELECT "id" FROM "Submission"
           WHERE "id" = ${submissionId}
@@ -673,6 +711,12 @@ export async function mutate(
           throw new ActionError(
             "다른 검토가 먼저 저장되었습니다. 페이지를 새로고침해 주세요.",
           );
+        if (current.status === "RETURNED" && status === "REVIEWED")
+          throw new ActionError(
+            "학생이 수정한 내용을 다시 제출한 뒤에 검토를 완료할 수 있습니다.",
+          );
+        if (current.status === status && current.feedback === feedback)
+          return false;
         await tx.submission.update({
           where: { id: submissionId },
           data: { status, feedback, reviewedAt: new Date() },
@@ -683,6 +727,7 @@ export async function mutate(
             reviewerId: user.id,
             status,
             feedback,
+            submissionContent: current.content,
           },
         });
         await tx.assignmentProgress.upsert({
@@ -699,7 +744,12 @@ export async function mutate(
           },
           update: { completed: status === "REVIEWED" },
         });
+        return true;
       });
+      if (!reviewCreated)
+        return {
+          success: "검토 내용에 변경이 없어 새 기록은 만들지 않았습니다.",
+        };
       target = `/teacher/assignments/${submission.assignmentId}`;
     } else if (op === "attachment-delete") {
       if (user.role !== "TEACHER") throw Error();
@@ -749,6 +799,14 @@ export async function mutate(
           update: { [field]: value },
         });
       });
+      successMessage =
+        field === "completed"
+          ? value
+            ? "진행 완료 표시를 저장했어요. 제출 상태는 별도로 표시됩니다."
+            : "진행 상태를 진행 중으로 바꿨어요."
+          : value
+            ? "즐겨찾기에 추가했어요."
+            : "즐겨찾기를 해제했어요.";
     } else if (op === "event") {
       if (user.role !== "STUDENT") throw Error();
       const data = z.object({ title: text(150), dueAt: due }).parse(raw);
@@ -770,9 +828,40 @@ export async function mutate(
       await db.personalEvent.deleteMany({
         where: { id: text(50).parse(form.get("id")), userId: user.id },
       });
+    } else if (op === "event-update") {
+      if (user.role !== "STUDENT") throw Error();
+      const id = text(50).parse(form.get("id"));
+      const data = z.object({ title: text(150), dueAt: due }).parse(raw);
+      const updated = await db.personalEvent.updateMany({
+        where: { id, userId: user.id },
+        data,
+      });
+      if (updated.count !== 1)
+        throw new ActionError("개인 일정을 찾을 수 없습니다.");
+      target = "/student/calendar";
     } else throw Error();
     revalidatePath(`/${user.role.toLowerCase()}`, "layout");
   } catch (e) {
+    const operationValue = form.get("op");
+    if (operationValue === "assignment") {
+      const readValue = (key: string, limit: number) => {
+        const value = form.get(key);
+        return typeof value === "string" ? value.slice(0, limit) : "";
+      };
+      const values = {
+        title: readValue("title", 150),
+        description: readValue("description", 10000),
+        rubric: readValue("rubric", 5000),
+        type: readValue("type", 20),
+        dueAt: readValue("dueAt", 10),
+      };
+      const file = form.get("file");
+      const fileSelected = file instanceof File && file.name.length > 0;
+      return {
+        error: `${message(e)}${fileSelected ? " 첨부파일은 다시 선택해 주세요." : ""}`,
+        values,
+      };
+    }
     return { error: message(e) };
   }
   if (target) redirect(target);

@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Copy } from "lucide-react";
+import { ArrowRight, Copy, Eye, EyeOff, X } from "lucide-react";
 import { useActionState, useState, useSyncExternalStore } from "react";
 import { authenticate, type ActionState } from "@/app/actions";
-import { PROMPT_DRAFT_KEY, PROMPT_DRAFT_MODE_KEY } from "@/lib/prompt-draft";
+import {
+  clearPromptDraft,
+  PROMPT_DRAFT_KEY,
+  PROMPT_DRAFT_MODE_KEY,
+} from "@/lib/prompt-draft";
 import { ActionMessage } from "./ActionMessage";
 import { Logo } from "./Logo";
 import { SubmitButton } from "./SubmitButton";
@@ -37,6 +41,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     "STUDENT",
   );
   const [copyMessage, setCopyMessage] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [promptHidden, setPromptHidden] = useState(false);
   const register = mode === "register";
   const pendingPrompt = useSyncExternalStore(
     emptySubscription,
@@ -108,8 +114,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               <li className="is-active">
                 <span>01</span>
                 <div>
-                  <strong>기본 정보</strong>
-                  <small>나를 위한 계정을 만들어요.</small>
+                  <strong>계정 만들기</strong>
+                  <small>이름, 이메일과 비밀번호를 입력해요.</small>
                 </div>
               </li>
               <li>
@@ -122,8 +128,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               <li>
                 <span>03</span>
                 <div>
-                  <strong>학습 시작</strong>
-                  <small>오늘 할 일을 한 화면에서 확인해요.</small>
+                  <strong>클래스 연결</strong>
+                  <small>학생은 초대 코드로 클래스에 참여해요.</small>
                 </div>
               </li>
             </ol>
@@ -179,12 +185,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             </p>
           </div>
 
-          {pendingPrompt && (
+          {pendingPrompt && !promptHidden && (
             <div className="study-auth-intent">
               <span>방금 입력한 시작 문장</span>
               <p>{pendingPrompt}</p>
               <small>
-                로그인이나 가입을 마치면 대시보드에서 이어서 사용할 수 있어요.
+                학생은 클래스 참여와 AI 사용 동의 후 과제에서 이어 쓸 수
+                있습니다.
               </small>
               <div className="study-auth-intent-actions">
                 <span className="badge badge-blue">{pendingPromptMode}</span>
@@ -195,6 +202,21 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 >
                   <Copy size={14} aria-hidden="true" />
                   문장 복사
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => {
+                    if (!clearPromptDraft()) {
+                      setCopyMessage("임시 문장을 지우지 못했습니다.");
+                      return;
+                    }
+                    setPromptHidden(true);
+                    setCopyMessage("");
+                  }}
+                >
+                  <X size={14} aria-hidden="true" />
+                  지우기
                 </button>
               </div>
               {copyMessage && (
@@ -211,7 +233,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
             {register && (
               <div className="study-auth-field">
-                <label htmlFor="name">이름</label>
+                <label htmlFor="name">
+                  이름{" "}
+                  <span className="required-marker" aria-hidden="true">
+                    (필수)
+                  </span>
+                </label>
                 <input
                   id="name"
                   name="name"
@@ -225,7 +252,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
             {register && (
               <fieldset className="study-auth-role-field">
-                <legend>계정 유형</legend>
+                <legend>계정 유형 (필수)</legend>
                 <div className="study-auth-role-grid">
                   <div className="study-auth-role-option">
                     <input
@@ -262,12 +289,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
             {register && selectedRole === "TEACHER" && (
               <p className="study-auth-hint" aria-live="polite">
-                선생님 계정은 관리자 승인 후 로그인할 수 있어요.
+                선생님 계정은 운영 담당자의 승인 후 로그인할 수 있어요.
               </p>
             )}
 
             <div className="study-auth-field">
-              <label htmlFor="email">이메일</label>
+              <label htmlFor="email">이메일 (필수)</label>
               <input
                 id="email"
                 name="email"
@@ -275,42 +302,52 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 required
                 maxLength={254}
                 autoComplete="email"
+                aria-describedby={register ? "email-hint" : undefined}
                 placeholder="you@school.com"
               />
+              {register && (
+                <small className="study-auth-hint" id="email-hint">
+                  이 시연 계정은 이메일 소유 여부를 확인하지 않습니다. 실제
+                  학생·교직원 이메일을 입력하지 마세요.
+                </small>
+              )}
             </div>
 
-            {register && (
-              <div className="study-auth-field">
-                <label htmlFor="phone">전화번호</label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  required
-                  maxLength={32}
-                  autoComplete="tel"
-                  inputMode="tel"
-                  placeholder="010-1234-5678"
-                  aria-describedby="phone-hint"
-                />
-                <small className="study-auth-hint" id="phone-hint">
-                  계정 확인을 위해 요청하며, AI 제공자에게는 전달하지 않습니다.
-                </small>
-              </div>
-            )}
-
             <div className="study-auth-field">
-              <label htmlFor="password">비밀번호</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                minLength={10}
-                maxLength={72}
-                autoComplete={register ? "new-password" : "current-password"}
-                placeholder="10자 이상"
-              />
+              <label htmlFor="password">비밀번호 (필수)</label>
+              <div className="study-password-control">
+                <input
+                  id="password"
+                  name="password"
+                  type={passwordVisible ? "text" : "password"}
+                  required
+                  minLength={10}
+                  maxLength={72}
+                  autoComplete={register ? "new-password" : "current-password"}
+                  aria-describedby={register ? "password-hint" : undefined}
+                  placeholder="10자 이상"
+                />
+                <button
+                  className="study-password-toggle"
+                  type="button"
+                  aria-label={
+                    passwordVisible ? "비밀번호 숨기기" : "비밀번호 표시"
+                  }
+                  aria-pressed={passwordVisible}
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                >
+                  {passwordVisible ? (
+                    <EyeOff size={18} aria-hidden="true" />
+                  ) : (
+                    <Eye size={18} aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+              {register && (
+                <small className="study-auth-hint" id="password-hint">
+                  10자 이상, UTF-8 기준 72바이트 이하로 입력해 주세요.
+                </small>
+              )}
               {!register && (
                 <small className="study-auth-hint study-auth-recovery">
                   비밀번호를 잊으셨나요? 현재 직접 재설정은 제공하지 않습니다.
@@ -335,6 +372,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               {register ? "로그인" : "회원가입"}
             </Link>
           </p>
+          {register && (
+            <p className="study-auth-privacy">
+              가입 전에 <Link href="/privacy">개인정보 안내</Link>를 확인해
+              주세요. 이 시연 서비스는 이메일 소유 여부를 확인하지 않습니다.
+            </p>
+          )}
         </section>
       </div>
     </main>

@@ -4,12 +4,14 @@ import { chmod, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { execFile, spawn, spawnSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
+import { createServer as createScannerServer } from "node:net";
 import { randomBytes } from "node:crypto";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 let pg: EmbeddedPostgres | undefined;
 let mock: Server | undefined;
+let scannerMock: ReturnType<typeof createScannerServer> | undefined;
 let next: ReturnType<typeof spawn> | undefined;
 let postgresPid: number | undefined;
 let postgresDirectory = "";
@@ -82,6 +84,8 @@ async function stop(code: number) {
   }
   if (mock?.listening)
     await new Promise<void>((done) => mock?.close(() => done()));
+  if (scannerMock?.listening)
+    await new Promise<void>((done) => scannerMock?.close(() => done()));
   if (pg) await pg.stop().catch(() => undefined);
   forceKillPostgres();
   process.exitCode = code;
@@ -145,8 +149,50 @@ async function main() {
     AI_BASE_URL: "",
     AI_MODEL: "test-fixture",
     AI_ALLOW_INSECURE_HTTP_LOCALHOST: "true",
-    E2E_TEST_MODE: "true",
+    E2E_TEST_MODE: "false",
   };
+  scannerMock = createScannerServer((socket) => {
+    let input = Buffer.alloc(0);
+    let headerRead = false;
+    const chunks: Buffer[] = [];
+    socket.on("error", () => undefined);
+    socket.on("data", (chunk) => {
+      input = Buffer.concat([input, chunk]);
+      if (!headerRead) {
+        const marker = Buffer.from("zINSTREAM\0", "ascii");
+        const markerIndex = input.indexOf(marker);
+        if (markerIndex < 0) return;
+        input = input.subarray(markerIndex + marker.length);
+        headerRead = true;
+      }
+      while (input.byteLength >= 4) {
+        const length = input.readUInt32BE(0);
+        if (input.byteLength < length + 4) return;
+        input = input.subarray(4);
+        if (length === 0) {
+          const infected = Buffer.concat(chunks)
+            .toString("utf8")
+            .includes("EICAR_TEST");
+          socket.end(
+            infected ? "stream: Eicar-Test-Signature FOUND\0" : "stream: OK\0",
+          );
+          return;
+        }
+        chunks.push(Buffer.from(input.subarray(0, length)));
+        input = input.subarray(length);
+      }
+    });
+  });
+  await new Promise<void>((done, reject) => {
+    scannerMock?.once("error", reject);
+    scannerMock?.listen(0, "127.0.0.1", () => done());
+  });
+  const scannerAddress = scannerMock.address();
+  if (!scannerAddress || typeof scannerAddress === "string")
+    throw new Error("ClamAV fixture failed to bind a TCP port.");
+  env.CLAMAV_HOST = "127.0.0.1";
+  env.CLAMAV_PORT = String(scannerAddress.port);
+  env.CLAMAV_SOCKET = "";
   // Deterministic test provider only; production code has no mock switch.
   mock = createServer(async (req, res) => {
     if (req.url !== "/v1/chat/completions") {
@@ -220,7 +266,14 @@ async function main() {
       res.writeHead(400).end("Unexpected profile data");
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) =>
+      setTimeout(
+        resolve,
+        payload.messages.at(-1)?.content === "DELETE_DURING_RESPONSE"
+          ? 1500
+          : 250,
+      ),
+    );
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({

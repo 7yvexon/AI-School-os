@@ -11,7 +11,11 @@ export function RemoveMemberButton({ memberId }: { memberId: string }) {
     <form
       action={action}
       onSubmit={(event) => {
-        if (!window.confirm("이 학생을 클래스에서 제외할까요?"))
+        if (
+          !window.confirm(
+            "이 학생의 클래스 접근을 중단할까요? 기존 제출·검토 기록은 보존되며, 나중에 참여를 복원할 수 있습니다.",
+          )
+        )
           event.preventDefault();
       }}
     >

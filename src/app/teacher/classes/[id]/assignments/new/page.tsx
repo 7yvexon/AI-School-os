@@ -3,6 +3,11 @@ import { AssignmentForm } from "@/components/AssignmentForm";
 import { Heading } from "@/components/WorkspaceViews";
 import { requireUser } from "@/lib/auth";
 import { ownedClass } from "@/lib/access";
+import { pageMetadata } from "@/lib/page-metadata";
+export const metadata = pageMetadata(
+  "과제 등록",
+  "클래스에 새 과제를 등록하세요.",
+);
 export default async function Page({
   params,
 }: {

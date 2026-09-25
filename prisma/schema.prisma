@@ -57,7 +57,8 @@ model User {
   school             String                        @default("")
   grade              String                        @default("")
   classroom          String                        @default("")
-  phone              String                        @default("")
+  phone              String?                       @default("")
+  aiHistoryVersion   Int                           @default(0)
   createdAt          DateTime                      @default(now())
   sessions           Session[]
   classes            Class[]
@@ -71,6 +72,7 @@ model User {
   uploadReservations AttachmentUploadReservation[]
   teacherApprovedAt  DateTime?
   aiConsentAt        DateTime?
+  aiConsentProviderKey String?
 }
 
 model Session {
@@ -167,14 +169,15 @@ model Submission {
 }
 
 model SubmissionReview {
-  id           String       @id @default(cuid())
-  submissionId String
-  reviewerId   String
-  status       ReviewStatus
-  feedback     String       @default("")
-  createdAt    DateTime     @default(now())
-  submission   Submission   @relation(fields: [submissionId], references: [id], onDelete: Restrict)
-  reviewer     User         @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  id                String       @id @default(cuid())
+  submissionId      String
+  reviewerId        String
+  status            ReviewStatus
+  feedback          String       @default("")
+  submissionContent String?      @db.Text
+  createdAt         DateTime     @default(now())
+  submission        Submission   @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  reviewer          User         @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
 
   @@index([submissionId, createdAt])
   @@index([reviewerId, createdAt])

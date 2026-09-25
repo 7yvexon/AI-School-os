@@ -1,18 +1,17 @@
-import Link from "next/link";
 import {
   LayoutDashboard,
   BookOpen,
   ClipboardList,
+  ClipboardCheck,
   CalendarDays,
   MessageCircle,
   Settings,
-  LogOut,
   Plus,
   Users,
 } from "lucide-react";
 import { Logo } from "./Logo";
-import { logout } from "@/app/actions";
 import { NavLink } from "./NavLink";
+import { LogoutForm } from "./LogoutForm";
 
 export function Sidebar({
   role,
@@ -35,6 +34,7 @@ export function Sidebar({
         ["대시보드", `${base}/dashboard`, LayoutDashboard],
         ["내 클래스", `${base}/classes`, BookOpen],
         ["과제 관리", `${base}/assignments`, ClipboardList],
+        ["검토 대기", `${base}/reviews`, ClipboardCheck],
         ["학생 현황", `${base}/students`, Users],
       ] as const);
   return (
@@ -49,10 +49,10 @@ export function Sidebar({
           </NavLink>
         ))}
         {role === "TEACHER" && (
-          <Link className="nav-link" href="/teacher/classes/new">
+          <NavLink href="/teacher/classes/new">
             <Plus size={17} aria-hidden="true" focusable="false" />
             <span>새 클래스 만들기</span>
-          </Link>
+          </NavLink>
         )}
       </nav>
       <div className="sidebar-footer">
@@ -61,12 +61,7 @@ export function Sidebar({
             <Settings size={17} aria-hidden="true" focusable="false" />
             <span>설정</span>
           </NavLink>
-          <form action={logout}>
-            <button className="nav-link nav-button" type="submit">
-              <LogOut size={17} aria-hidden="true" focusable="false" />
-              <span>로그아웃</span>
-            </button>
-          </form>
+          <LogoutForm className="nav-link nav-button" />
         </nav>
         <div className="profile-mini">
           <span className="avatar" aria-hidden="true">

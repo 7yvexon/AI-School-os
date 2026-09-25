@@ -1,6 +1,11 @@
 import { ClassForm } from "@/components/ClassForm";
 import { Heading } from "@/components/WorkspaceViews";
 import { requireUser } from "@/lib/auth";
+import { pageMetadata } from "@/lib/page-metadata";
+export const metadata = pageMetadata(
+  "새 클래스 만들기",
+  "학생을 초대할 클래스를 만드세요.",
+);
 export default async function Page() {
   await requireUser("TEACHER");
   return (

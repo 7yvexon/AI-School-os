@@ -11,7 +11,7 @@ export function ClassForm() {
       <ActionMessage state={state} />
       <div className="form-grid">
         <div className="field">
-          <label htmlFor="name">클래스 이름</label>
+          <label htmlFor="name">클래스 이름 (필수)</label>
           <input
             id="name"
             name="name"
@@ -21,7 +21,7 @@ export function ClassForm() {
           />
         </div>
         <div className="field">
-          <label htmlFor="subject">과목</label>
+          <label htmlFor="subject">과목 (필수)</label>
           <input
             id="subject"
             name="subject"

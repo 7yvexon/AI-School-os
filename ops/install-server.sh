@@ -59,6 +59,10 @@ command -v openssl >/dev/null
 command -v node >/dev/null
 command -v npm >/dev/null
 command -v readlink >/dev/null
+if [ ! -x /usr/bin/node ] || [ ! -x /usr/bin/npm ]; then
+  echo "운영 서비스와 배포에는 /usr/bin/node 및 /usr/bin/npm이 필요합니다." >&2
+  exit 1
+fi
 
 APP_ROOT=$(readlink -f -- "$APP_ROOT")
 CONFIG_ROOT=$(readlink -f -- "$CONFIG_ROOT")
@@ -87,9 +91,14 @@ if [ ! -f "$SCRIPT_DIR/ai-school-os.service" ]; then
   echo "서비스 템플릿을 찾지 못했습니다: $SCRIPT_DIR/ai-school-os.service" >&2
   exit 1
 fi
+if [ ! -f "$SCRIPT_DIR/ai-school-os-cleanup.service" ] ||
+  [ ! -f "$SCRIPT_DIR/ai-school-os-cleanup.timer" ]; then
+  echo "정리 작업용 systemd 템플릿을 찾지 못했습니다." >&2
+  exit 1
+fi
 
-node_major=$(node --version | sed -E 's/^v([0-9]+).*/\1/')
-node_minor=$(node --version | sed -E 's/^v[0-9]+\.([0-9]+).*/\1/')
+node_major=$(/usr/bin/node --version | sed -E 's/^v([0-9]+).*/\1/')
+node_minor=$(/usr/bin/node --version | sed -E 's/^v[0-9]+\.([0-9]+).*/\1/')
 if [ "$node_major" -lt 22 ] || { [ "$node_major" -eq 22 ] && [ "$node_minor" -lt 12 ]; }; then
   echo "Node.js 22.12 이상이 필요합니다." >&2
   exit 1
@@ -161,7 +170,9 @@ SQL
 fi
 
 rendered_service=$(mktemp)
-trap 'rm -f "$rendered_service"' EXIT
+rendered_cleanup_service=$(mktemp)
+rendered_cleanup_timer=$(mktemp)
+trap 'rm -f "$rendered_service" "$rendered_cleanup_service" "$rendered_cleanup_timer"' EXIT
 sed \
   -e "s|__APP_ROOT__|$APP_ROOT|g" \
   -e "s|__CONFIG_ROOT__|$CONFIG_ROOT|g" \
@@ -170,8 +181,21 @@ sed \
   -e "s|__SERVICE_USER__|$SERVICE_USER|g" \
   -e "s|__SERVICE_NAME__|$SERVICE_NAME|g" \
   "$SCRIPT_DIR/ai-school-os.service" >"$rendered_service"
+sed \
+  -e "s|__APP_ROOT__|$APP_ROOT|g" \
+  -e "s|__CONFIG_ROOT__|$CONFIG_ROOT|g" \
+  -e "s|__ENV_FILE__|$ENV_FILE|g" \
+  -e "s|__SERVICE_USER__|$SERVICE_USER|g" \
+  -e "s|__SERVICE_NAME__|$SERVICE_NAME|g" \
+  "$SCRIPT_DIR/ai-school-os-cleanup.service" >"$rendered_cleanup_service"
+sed \
+  -e "s|__SERVICE_NAME__|$SERVICE_NAME|g" \
+  "$SCRIPT_DIR/ai-school-os-cleanup.timer" >"$rendered_cleanup_timer"
 install -o root -g root -m 0644 "$rendered_service" "/etc/systemd/system/$SERVICE_NAME.service"
+install -o root -g root -m 0644 "$rendered_cleanup_service" "/etc/systemd/system/$SERVICE_NAME-cleanup.service"
+install -o root -g root -m 0644 "$rendered_cleanup_timer" "/etc/systemd/system/$SERVICE_NAME-cleanup.timer"
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME.service"
+systemctl enable --now "$SERVICE_NAME-cleanup.timer"
 
 echo "서버 기본 설정 완료: $APP_ROOT · $ENV_FILE · $SERVICE_NAME.service"

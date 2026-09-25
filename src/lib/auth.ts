@@ -45,6 +45,8 @@ export const getUser = cache(async function getUser() {
           classroom: true,
           teacherApprovedAt: true,
           aiConsentAt: true,
+          aiConsentProviderKey: true,
+          aiHistoryVersion: true,
         },
       },
     },

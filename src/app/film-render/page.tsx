@@ -20,7 +20,7 @@ export default async function FilmRenderPage({
     notFound();
 
   return (
-    <main className="film-render-page">
+    <main id="main-content" className="film-render-page" tabIndex={-1}>
       <ProductCinema renderMode />
     </main>
   );

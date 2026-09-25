@@ -8,12 +8,8 @@ function validIp(value: string | null) {
 
 export function requestIp(headers: Headers) {
   if (process.env.TRUST_PROXY?.trim() === "true") {
-    const forwarded = validIp(
-      headers.get("x-forwarded-for")?.split(",")[0] ?? null,
-    );
-    if (forwarded) return forwarded;
-    const real = validIp(headers.get("x-real-ip"));
-    if (real) return real;
+    const cloudflare = validIp(headers.get("cf-connecting-ip"));
+    if (cloudflare) return cloudflare;
   }
   return "direct";
 }

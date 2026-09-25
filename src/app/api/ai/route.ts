@@ -2,7 +2,12 @@ import { z } from "zod";
 import { getUser } from "@/lib/auth";
 import { accessibleAssignment } from "@/lib/access";
 import { db } from "@/lib/db";
-import { aiConfigured, completeChat, type ChatMessage } from "@/lib/ai";
+import {
+  aiConfigured,
+  aiProviderKey,
+  completeChat,
+  type ChatMessage,
+} from "@/lib/ai";
 import { aiContext, dailyLimit, dayKey } from "@/lib/domain";
 import { RateLimitError, rateLimit } from "@/lib/rate-limit";
 import { validateRateLimitConfig } from "@/lib/rate-limit-core";
@@ -29,10 +34,19 @@ function responseHeaders(extra?: HeadersInit) {
   }
   return headers;
 }
-const fail = (error: string, status: number, headers?: HeadersInit) =>
-  Response.json({ error }, { status, headers: responseHeaders(headers) });
+const fail = (
+  error: string,
+  status: number,
+  headers?: HeadersInit,
+  extra?: Record<string, number>,
+) =>
+  Response.json(
+    { error, ...extra },
+    { status, headers: responseHeaders(headers) },
+  );
 class ConsentRevokedError extends Error {}
 class AssignmentAccessRevokedError extends Error {}
+class ConversationHistoryDeletedError extends Error {}
 export async function POST(request: Request) {
   try {
     let config;
@@ -80,7 +94,11 @@ export async function POST(request: Request) {
           : "요청 형식을 확인해 주세요.",
         Number(contentLength) > MAX_AI_REQUEST_BYTES ? 413 : 400,
       );
-    let input: { assignmentId: string; message: string };
+    let input: {
+      assignmentId: string;
+      message: string;
+      mode: "AI 학습" | "과제 정리";
+    };
     try {
       const reader = request.body?.getReader();
       if (!reader) return fail("질문을 입력해 주세요.", 400);
@@ -102,6 +120,7 @@ export async function POST(request: Request) {
         .object({
           assignmentId: z.string().trim().min(1).max(50),
           message: z.string().trim().min(1).max(2000),
+          mode: z.enum(["AI 학습", "과제 정리"]).default("AI 학습"),
         })
         .strict()
         .parse(JSON.parse(body));
@@ -110,11 +129,19 @@ export async function POST(request: Request) {
     }
     const assignment = await accessibleAssignment(input.assignmentId, user);
     if (!assignment) return fail("과제에 접근할 수 없습니다.", 404);
-    if (!user.aiConsentAt) return fail("AI 사용 동의가 필요합니다.", 428);
-    if (!aiConfigured())
+    const configuredProviderKey = aiProviderKey();
+    if (!aiConfigured() || !configuredProviderKey)
       return fail(
         "AI 연결이 아직 설정되지 않았습니다. 관리자에게 문의해 주세요.",
         503,
+      );
+    if (
+      !user.aiConsentAt ||
+      user.aiConsentProviderKey !== configuredProviderKey
+    )
+      return fail(
+        "AI 제공 설정이 변경되었습니다. 내용을 확인하고 다시 동의해 주세요.",
+        428,
       );
     const day = dayKey();
     const usage = await db.aIUsage.findUnique({
@@ -125,17 +152,44 @@ export async function POST(request: Request) {
       return fail(
         "오늘의 AI 사용 한도에 도달했습니다. 자정(한국 시간)에 초기화됩니다.",
         429,
+        undefined,
+        { used: usage?.count ?? 0, limit: dailyLimit(user.plan) },
       );
-    const conversation = await db.aIConversation.upsert({
-      where: {
-        userId_assignmentId: { userId: user.id, assignmentId: assignment.id },
-      },
-      create: {
-        userId: user.id,
-        assignmentId: assignment.id,
-        busyUntil: new Date(0),
-      },
-      update: {},
+    const historyVersion = user.aiHistoryVersion;
+    const conversation = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE
+      `;
+      const currentUser = await tx.user.findUnique({
+        where: { id: user.id },
+        select: {
+          aiConsentAt: true,
+          aiConsentProviderKey: true,
+          aiHistoryVersion: true,
+        },
+      });
+      if (
+        !currentUser?.aiConsentAt ||
+        currentUser.aiConsentAt.getTime() !== user.aiConsentAt?.getTime() ||
+        currentUser.aiConsentProviderKey !== configuredProviderKey
+      )
+        throw new ConsentRevokedError();
+      if (currentUser.aiHistoryVersion !== historyVersion)
+        throw new ConversationHistoryDeletedError();
+      return tx.aIConversation.upsert({
+        where: {
+          userId_assignmentId: {
+            userId: user.id,
+            assignmentId: assignment.id,
+          },
+        },
+        create: {
+          userId: user.id,
+          assignmentId: assignment.id,
+          busyUntil: new Date(0),
+        },
+        update: {},
+      });
     });
     const lockUntil = new Date(Date.now() + 90000);
     const lock = await db.aIConversation.updateMany({
@@ -143,6 +197,7 @@ export async function POST(request: Request) {
       data: { busyUntil: lockUntil },
     });
     if (!lock.count) return fail("이 과제의 이전 답변을 기다려 주세요.", 409);
+    let usageReserved = false;
     try {
       const history = await db.aIMessage.findMany({
         where: { conversationId: conversation.id },
@@ -169,7 +224,7 @@ export async function POST(request: Request) {
       const messages: ChatMessage[] = [
         {
           role: "system",
-          content: aiContext({ grade: user.grade }, liveAssignment),
+          content: aiContext({ grade: user.grade }, liveAssignment, input.mode),
         },
         ...recentHistory,
         { role: "user", content: input.message },
@@ -185,6 +240,25 @@ export async function POST(request: Request) {
         86400000,
       );
       const reserved = await db.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE
+        `;
+        const currentUser = await tx.user.findUnique({
+          where: { id: user.id },
+          select: {
+            aiConsentAt: true,
+            aiConsentProviderKey: true,
+            aiHistoryVersion: true,
+          },
+        });
+        if (
+          !currentUser?.aiConsentAt ||
+          currentUser.aiConsentAt.getTime() !== user.aiConsentAt?.getTime() ||
+          currentUser.aiConsentProviderKey !== configuredProviderKey
+        )
+          throw new ConsentRevokedError();
+        if (currentUser.aiHistoryVersion !== historyVersion)
+          throw new ConversationHistoryDeletedError();
         await tx.aIUsage.upsert({
           where: { userId_day: { userId: user.id, day } },
           create: { userId: user.id, day },
@@ -217,7 +291,10 @@ export async function POST(request: Request) {
         return fail(
           "오늘의 AI 사용 한도에 도달했습니다. 자정(한국 시간)에 초기화됩니다.",
           429,
+          undefined,
+          { used: (usage?.count ?? 0) + 1, limit: dailyLimit(user.plan) },
         );
+      usageReserved = true;
       const reply = await completeChat(messages);
       const liveConversation = await db.aIConversation.findUnique({
         where: { id: conversation.id },
@@ -226,9 +303,12 @@ export async function POST(request: Request) {
       if (!liveConversation) return fail("AI 대화 기록이 삭제되었습니다.", 410);
       const latestConsent = await db.user.findUnique({
         where: { id: user.id },
-        select: { aiConsentAt: true },
+        select: { aiConsentAt: true, aiConsentProviderKey: true },
       });
-      if (!latestConsent?.aiConsentAt)
+      if (
+        !latestConsent?.aiConsentAt ||
+        latestConsent.aiConsentProviderKey !== configuredProviderKey
+      )
         return fail("AI 사용 동의가 필요합니다.", 428);
       const saved = await db.$transaction(async (tx) => {
         const assignmentInfo = await tx.assignment.findUnique({
@@ -262,9 +342,20 @@ export async function POST(request: Request) {
       `;
         const lockedUser = await tx.user.findUnique({
           where: { id: user.id },
-          select: { aiConsentAt: true },
+          select: {
+            aiConsentAt: true,
+            aiConsentProviderKey: true,
+            aiHistoryVersion: true,
+          },
         });
-        if (!lockedUser?.aiConsentAt) throw new ConsentRevokedError();
+        if (
+          !lockedUser?.aiConsentAt ||
+          lockedUser.aiConsentAt.getTime() !== user.aiConsentAt?.getTime() ||
+          lockedUser.aiConsentProviderKey !== configuredProviderKey
+        )
+          throw new ConsentRevokedError();
+        if (lockedUser.aiHistoryVersion !== historyVersion)
+          throw new ConversationHistoryDeletedError();
         await tx.aIMessage.create({
           data: {
             conversationId: conversation.id,
@@ -305,8 +396,22 @@ export async function POST(request: Request) {
         });
       if (error instanceof ConsentRevokedError)
         return fail("AI 사용 동의가 필요합니다.", 428);
+      if (error instanceof ConversationHistoryDeletedError)
+        return fail("AI 대화 기록이 삭제되었습니다. 다시 질문해 주세요.", 410);
       if (error instanceof AssignmentAccessRevokedError)
         return fail("과제에 접근할 수 없습니다.", 404);
+      if (usageReserved) {
+        const currentUsage = await db.aIUsage.findUnique({
+          where: { userId_day: { userId: user.id, day } },
+          select: { count: true },
+        });
+        return fail(
+          "답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          502,
+          undefined,
+          { used: currentUsage?.count ?? 0, limit: dailyLimit(user.plan) },
+        );
+      }
       return fail(
         "답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         502,
@@ -324,6 +429,10 @@ export async function POST(request: Request) {
       return fail("잠시 후 다시 질문해 주세요.", 429, {
         "Retry-After": String(error.retryAfterSeconds),
       });
+    if (error instanceof ConsentRevokedError)
+      return fail("AI 사용 동의가 필요합니다.", 428);
+    if (error instanceof ConversationHistoryDeletedError)
+      return fail("AI 대화 기록이 삭제되었습니다. 다시 질문해 주세요.", 410);
     return fail("요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.", 500);
   }
 }

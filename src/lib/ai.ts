@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   AI_REQUEST_TIMEOUT_MS,
@@ -69,6 +70,19 @@ function aiBaseUrl() {
 
 export function aiConfigured() {
   return Boolean(aiBaseUrl());
+}
+
+export function aiProviderDisclosure() {
+  const config = aiBaseUrl();
+  return config ? { host: config.url.host, model: config.model } : null;
+}
+
+export function aiProviderKey() {
+  const config = aiBaseUrl();
+  if (!config) return null;
+  return createHash("sha256")
+    .update(`${config.url.toString()}\n${config.model}`)
+    .digest("hex");
 }
 
 async function responseText(response: Response) {

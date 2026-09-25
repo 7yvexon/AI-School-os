@@ -13,7 +13,7 @@ export function AiDataDeleteButton() {
       onSubmit={(event) => {
         if (
           !window.confirm(
-            "AI 대화 기록을 모두 삭제할까요? 삭제 후 복구할 수 없습니다.",
+            "저장된 AI 대화를 모두 삭제할까요? 사용 동의와 사용량 통계는 유지됩니다. 진행 중인 질문은 외부 제공자에게 이미 전송됐을 수 있습니다. 삭제 후에는 복구할 수 없습니다.",
           )
         )
           event.preventDefault();

@@ -11,7 +11,12 @@ export function RestoreMemberButton({ memberId }: { memberId: string }) {
     <form action={action}>
       <input type="hidden" name="op" value="member-restore" />
       <input type="hidden" name="memberId" value={memberId} />
-      <SubmitButton className="btn btn-secondary">학생 다시 초대</SubmitButton>
+      <div>
+        <SubmitButton className="btn btn-secondary">참여 복원</SubmitButton>
+        <p className="form-hint">
+          복원하면 학생의 클래스 접근이 바로 다시 열립니다.
+        </p>
+      </div>
       <ActionMessage state={state} />
     </form>
   );

@@ -1,6 +1,7 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { mutate, type ActionState } from "@/app/actions";
+import Link from "next/link";
 import { ActionMessage } from "./ActionMessage";
 import { SubmitButton } from "./SubmitButton";
 type FormAssignment = {
@@ -10,20 +11,36 @@ type FormAssignment = {
   rubric?: string;
   type?: string;
   dueAt?: Date | string;
+  attachments?: { id: string; name: string; scanStatus: string }[];
 };
 export function AssignmentForm({
   classId,
   assignment,
 }: {
   classId: string;
-  assignment?: FormAssignment;
+  assignment?: FormAssignment & {
+    attachments?: { id: string; name: string; scanStatus: string }[];
+  };
 }) {
   const [state, action] = useActionState<ActionState, FormData>(mutate, {});
-  const date = assignment?.dueAt
-    ? new Date(assignment.dueAt).toISOString().slice(0, 10)
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state.error && state.values)
+      form.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
+  }, [state.error, state.values]);
+  const dueAt = state.values?.dueAt ?? assignment?.dueAt;
+  const date = dueAt
+    ? typeof dueAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueAt)
+      ? dueAt
+      : new Date(dueAt).toISOString().slice(0, 10)
     : "";
   return (
-    <form action={action} className="card card-pad">
+    <form
+      ref={form}
+      action={action}
+      className="card card-pad"
+      key={JSON.stringify(state.values ?? null)}
+    >
       <input type="hidden" name="op" value="assignment" />
       <input type="hidden" name="classId" value={classId} />
       {assignment?.id && (
@@ -32,11 +49,11 @@ export function AssignmentForm({
       <ActionMessage state={state} />
       <div className="form-grid">
         <div className="field field-full">
-          <label htmlFor="title">제목</label>
+          <label htmlFor="title">제목 (필수)</label>
           <input
             id="title"
             name="title"
-            defaultValue={assignment?.title}
+            defaultValue={state.values?.title ?? assignment?.title}
             required
             maxLength={150}
             placeholder="예: 주제 탐구 보고서"
@@ -47,7 +64,7 @@ export function AssignmentForm({
           <select
             id="type"
             name="type"
-            defaultValue={assignment?.type || "HOMEWORK"}
+            defaultValue={state.values?.type ?? assignment?.type ?? "HOMEWORK"}
           >
             <option value="HOMEWORK">과제</option>
             <option value="ASSESSMENT">수행평가</option>
@@ -56,7 +73,7 @@ export function AssignmentForm({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="dueAt">마감일</label>
+          <label htmlFor="dueAt">마감일 (필수)</label>
           <input
             id="dueAt"
             name="dueAt"
@@ -66,11 +83,11 @@ export function AssignmentForm({
           />
         </div>
         <div className="field field-full">
-          <label htmlFor="description">설명</label>
+          <label htmlFor="description">설명 (필수)</label>
           <textarea
             id="description"
             name="description"
-            defaultValue={assignment?.description}
+            defaultValue={state.values?.description ?? assignment?.description}
             required
             maxLength={10000}
             placeholder="학생들이 해야 할 일을 쉽게 설명해 주세요."
@@ -83,7 +100,7 @@ export function AssignmentForm({
           <textarea
             id="rubric"
             name="rubric"
-            defaultValue={assignment?.rubric}
+            defaultValue={state.values?.rubric ?? assignment?.rubric}
             maxLength={5000}
             placeholder="주제 선정\n자료 조사\n분석\n보고서 작성"
             style={{ minHeight: 100 }}
@@ -92,7 +109,8 @@ export function AssignmentForm({
         <div className="field field-full">
           <label htmlFor="file">첨부파일</label>
           <span id="assignment-file-hint" className="form-hint">
-            PDF, PNG, JPG, TXT · 5MB 이하
+            선택 사항 · PDF, PNG, JPG, TXT · 5MB 이하. 새 파일은 기존 첨부에
+            추가됩니다.
           </span>
           <input
             id="file"
@@ -101,6 +119,30 @@ export function AssignmentForm({
             accept="application/pdf,image/png,image/jpeg,text/plain"
             aria-describedby="assignment-file-hint"
           />
+          {assignment?.attachments?.length ? (
+            <ul className="assignment-attachments-current">
+              {assignment.attachments.map((attachment) => (
+                <li key={attachment.id}>
+                  <span>{attachment.name}</span>
+                  <span className="form-hint">
+                    {attachment.scanStatus === "CLEAN"
+                      ? "검사 완료"
+                      : attachment.scanStatus === "SCAN_ERROR"
+                        ? "검사 오류 · 다운로드 차단"
+                        : "검사 대기 · 다운로드 차단"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {assignment?.id && assignment.attachments?.length ? (
+            <Link
+              className="text-link"
+              href={`/teacher/assignments/${assignment.id}#attachments`}
+            >
+              기존 첨부파일 관리
+            </Link>
+          ) : null}
         </div>
       </div>
       <div

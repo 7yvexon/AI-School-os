@@ -1,27 +1,42 @@
 "use client";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { logout } from "@/app/actions";
+import { usePathname } from "next/navigation";
 import { NavLink } from "./NavLink";
+import { LogoutForm } from "./LogoutForm";
 
 export function MobileNav({ role }: { role: "STUDENT" | "TEACHER" }) {
-  const [open, setOpen] = useState(false);
+  const [openedAtPath, setOpenedAtPath] = useState<string | null>(null);
+  const pathname = usePathname();
+  const open = openedAtPath === pathname;
   const trigger = useRef<HTMLButtonElement>(null);
   const nav = useRef<HTMLElement>(null);
   const wasOpen = useRef(false);
+  const closeReason = useRef<"toggle" | "escape" | "navigation">("toggle");
+  const previousPathname = useRef(pathname);
   const base = `/${role.toLowerCase()}`;
   useEffect(() => {
+    const pathChanged = previousPathname.current !== pathname;
+    previousPathname.current = pathname;
     if (open && !wasOpen.current) {
       nav.current?.querySelector<HTMLElement>("a, button")?.focus();
     }
-    if (!open && wasOpen.current) trigger.current?.focus();
+    if (!open && wasOpen.current) {
+      if (pathChanged || closeReason.current === "navigation")
+        document.getElementById("main-content")?.focus();
+      else trigger.current?.focus();
+    }
+    if (pathChanged && !wasOpen.current)
+      document.getElementById("main-content")?.focus();
     wasOpen.current = open;
-  }, [open]);
+  }, [open, pathname]);
   useEffect(() => {
     if (!open) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        closeReason.current = "escape";
+        setOpenedAtPath(null);
+      }
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
@@ -35,7 +50,10 @@ export function MobileNav({ role }: { role: "STUDENT" | "TEACHER" }) {
         aria-label={open ? "메뉴 닫기" : "메뉴 열기"}
         aria-expanded={open}
         aria-controls="mobile-navigation"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          closeReason.current = "toggle";
+          setOpenedAtPath(open ? null : pathname);
+        }}
       >
         {open ? (
           <X size={20} aria-hidden="true" focusable="false" />
@@ -61,34 +79,23 @@ export function MobileNav({ role }: { role: "STUDENT" | "TEACHER" }) {
               ]
             : [
                 ["학생 현황", "/students"],
+                ["검토 대기", "/reviews"],
                 ["새 클래스 만들기", "/classes/new"],
               ]),
           ["설정", "/settings"],
-        ].map(([label, path]) =>
-          path === "/classes/new" ? (
-            <Link
-              className="nav-link"
-              href={base + path}
-              key={path}
-              onClick={() => setOpen(false)}
-            >
-              {label}
-            </Link>
-          ) : (
-            <NavLink
-              href={base + path}
-              key={path}
-              onClick={() => setOpen(false)}
-            >
-              {label}
-            </NavLink>
-          ),
-        )}
-        <form action={logout}>
-          <button className="btn btn-ghost" type="submit">
-            로그아웃
-          </button>
-        </form>
+        ].map(([label, path]) => (
+          <NavLink
+            href={base + path}
+            key={path}
+            onClick={() => {
+              closeReason.current = "navigation";
+              setOpenedAtPath(null);
+            }}
+          >
+            {label}
+          </NavLink>
+        ))}
+        <LogoutForm className="btn btn-ghost" />
       </nav>
     </div>
   );

@@ -10,6 +10,7 @@ type ReviewRecord = {
   id: string;
   status: "RETURNED" | "REVIEWED";
   feedback: string;
+  submissionContent: string | null;
   createdAt: string;
   reviewerName: string;
 };
@@ -70,7 +71,7 @@ export function SubmissionReviewForm({
             flexWrap: "wrap",
           }}
         >
-          <h4>{studentName}</h4>
+          <h3>{studentName}</h3>
           <span
             className={`badge ${status === "REVIEWED" ? "badge-green" : status === "RETURNED" ? "badge-red" : "badge-blue"}`}
           >
@@ -100,6 +101,18 @@ export function SubmissionReviewForm({
                     </p>
                     {review.feedback && (
                       <p className="prose-like">{review.feedback}</p>
+                    )}
+                    {review.submissionContent ? (
+                      <details>
+                        <summary>검토 당시 제출 내용</summary>
+                        <p className="prose-like submission-snapshot">
+                          {review.submissionContent}
+                        </p>
+                      </details>
+                    ) : (
+                      <p className="form-hint">
+                        이 기록에는 검토 당시 제출 내용이 저장되지 않았습니다.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -162,7 +175,12 @@ export function SubmissionReviewForm({
               marginTop: 12,
             }}
           >
-            <SubmitButton pendingText="저장 중...">검토 저장</SubmitButton>
+            <SubmitButton
+              pendingText="저장 중..."
+              ariaLabel={`${studentName} 제출물 검토 저장`}
+            >
+              검토 저장
+            </SubmitButton>
           </div>
           <ActionMessage state={state} />
         </form>

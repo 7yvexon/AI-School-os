@@ -6,6 +6,9 @@ export type RuntimeEnvSource = {
   SERVER_ACTION_ALLOWED_ORIGINS?: string;
   NODE_ENV?: string;
   AI_ALLOW_INSECURE_HTTP_LOCALHOST?: string;
+  AI_API_KEY?: string;
+  AI_BASE_URL?: string;
+  AI_MODEL?: string;
   E2E_TEST_MODE?: string;
 };
 
@@ -132,6 +135,7 @@ export function parseRuntimeConfig(
     issues.push("DATABASE_URL은 유효한 PostgreSQL 연결 문자열이어야 합니다.");
   if (
     authSecret.length < 32 ||
+    authSecret === "replace-with-a-random-secret-at-least-32-characters" ||
     authSecret.trim() !== authSecret ||
     /[\u0000-\u001f\u007f]/.test(authSecret)
   )
@@ -154,6 +158,41 @@ export function parseRuntimeConfig(
       env.E2E_TEST_MODE === "true")
   )
     issues.push("E2E 전용 설정은 운영 환경에서 사용할 수 없습니다.");
+  const aiApiKey =
+    typeof env.AI_API_KEY === "string" ? env.AI_API_KEY.trim() : "";
+  const aiBaseUrl =
+    typeof env.AI_BASE_URL === "string" ? env.AI_BASE_URL.trim() : "";
+  const aiModel = typeof env.AI_MODEL === "string" ? env.AI_MODEL.trim() : "";
+  const hasAnyAiSetting = Boolean(aiApiKey || aiBaseUrl || aiModel);
+  if (hasAnyAiSetting && (!aiApiKey || !aiBaseUrl || !aiModel))
+    issues.push("AI_API_KEY, AI_BASE_URL, AI_MODEL은 함께 설정해야 합니다.");
+  if (aiApiKey && /[\r\n]/.test(aiApiKey))
+    issues.push("AI_API_KEY에 줄바꿈 문자를 사용할 수 없습니다.");
+  if (aiBaseUrl) {
+    try {
+      const url = new URL(aiBaseUrl);
+      const insecureLocalhostAllowed =
+        !isProduction &&
+        env.AI_ALLOW_INSECURE_HTTP_LOCALHOST === "true" &&
+        url.protocol === "http:" &&
+        ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+      if (
+        !url.hostname ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        (url.protocol !== "https:" && !insecureLocalhostAllowed)
+      )
+        issues.push(
+          isProduction
+            ? "운영 환경의 AI_BASE_URL은 인증 정보가 없는 HTTPS URL이어야 합니다."
+            : "AI_BASE_URL은 인증 정보가 없는 HTTPS URL이어야 합니다.",
+        );
+    } catch {
+      issues.push("AI_BASE_URL은 유효한 HTTPS URL이어야 합니다.");
+    }
+  }
   if (!serverActionAllowedOrigins.every(isAllowedOrigin))
     issues.push(
       "SERVER_ACTION_ALLOWED_ORIGINS는 도메인 또는 와일드카드 도메인의 쉼표 목록이어야 합니다.",

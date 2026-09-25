@@ -1,0 +1,4 @@
+ALTER TABLE "User" ALTER COLUMN "phone" DROP NOT NULL;
+ALTER TABLE "User" ADD COLUMN "aiHistoryVersion" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "User" ADD COLUMN "aiConsentProviderKey" TEXT;
+ALTER TABLE "SubmissionReview" ADD COLUMN "submissionContent" TEXT;

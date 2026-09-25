@@ -1,0 +1,11 @@
+[Unit]
+Description=Run AI School OS expired record cleanup hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5m
+Unit=__SERVICE_NAME__-cleanup.service
+
+[Install]
+WantedBy=timers.target

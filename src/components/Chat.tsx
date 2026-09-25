@@ -1,11 +1,16 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MessageCircle, Send } from "lucide-react";
-import { readChatResponse, type ChatApiMessage } from "@/lib/chat-api";
+import {
+  ChatApiError,
+  readChatResponse,
+  type ChatApiMessage,
+} from "@/lib/chat-api";
 import {
   PROMPT_DRAFT_KEY,
   PROMPT_DRAFT_MODE_KEY,
   getPromptDraft,
+  getPromptModeDraft,
   subscribePromptDraft,
 } from "@/lib/prompt-draft";
 type Message = ChatApiMessage;
@@ -36,6 +41,10 @@ export function Chat({
   const question = editedQuestion ?? pendingPrompt;
   const hasPendingDraft = Boolean(pendingPrompt) && !hasConsumedDraft;
   const end = useRef<HTMLDivElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const sendButton = useRef<HTMLButtonElement>(null);
+  const restoreInputFocus = useRef(false);
   const limitReached = used >= limit;
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest" });
@@ -43,6 +52,7 @@ export function Chat({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy || !question.trim()) return;
+    restoreInputFocus.current = document.activeElement === sendButton.current;
     setBusy(true);
     setError("");
     const content = question.trim();
@@ -53,7 +63,11 @@ export function Chat({
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ assignmentId, message: content }),
+        body: JSON.stringify({
+          assignmentId,
+          message: content,
+          mode: hasPendingDraft ? getPromptModeDraft() : "AI 학습",
+        }),
       });
       const data = await readChatResponse(response);
       setMessages((previous) => [
@@ -61,7 +75,9 @@ export function Chat({
         { id: crypto.randomUUID(), role: "user", content },
         data.message,
       ]);
-      setEditedQuestion("");
+      setEditedQuestion((current) =>
+        current === content ? "" : (current ?? ""),
+      );
       setUsed(data.used);
       if (hasPendingDraft) {
         try {
@@ -73,11 +89,16 @@ export function Chat({
         setHasConsumedDraft(true);
       }
     } catch (e) {
+      if (e instanceof ChatApiError && e.used !== undefined) setUsed(e.used);
       setError(
         e instanceof Error ? e.message : "네트워크 연결을 확인해 주세요.",
       );
     } finally {
       setBusy(false);
+      if (restoreInputFocus.current) {
+        restoreInputFocus.current = false;
+        requestAnimationFrame(() => textarea.current?.focus());
+      }
     }
   }
   return (
@@ -108,7 +129,7 @@ export function Chat({
                 className="suggestion"
                 key={q}
                 onClick={() => setEditedQuestion(q)}
-                disabled={!configured}
+                disabled={!configured || busy || limitReached}
               >
                 {q}
               </button>
@@ -128,7 +149,12 @@ export function Chat({
         <div ref={end} />
       </div>
       {!configured && (
-        <div className="alert alert-error" style={{ margin: 12 }} role="alert">
+        <div
+          id="chat-configuration"
+          className="alert alert-error"
+          style={{ margin: 12 }}
+          role="alert"
+        >
           AI 서비스 연결이 필요합니다. 관리자에게 문의해 주세요.
         </div>
       )}
@@ -142,24 +168,49 @@ export function Chat({
           {error}
         </div>
       )}
-      <form className="chat-form" onSubmit={submit}>
+      <form className="chat-form" onSubmit={submit} ref={form} aria-busy={busy}>
         <textarea
+          ref={textarea}
           aria-label="AI에게 질문"
-          aria-describedby={limitReached ? "chat-limit" : undefined}
+          aria-describedby={[
+            "chat-keyboard-hint",
+            !configured ? "chat-configuration" : "",
+            limitReached ? "chat-limit" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           value={question}
           onChange={(e) => setEditedQuestion(e.target.value)}
           maxLength={2000}
           placeholder="과제에 대해 궁금한 점을 물어보세요"
-          disabled={!configured || busy || limitReached}
+          readOnly={!configured || limitReached}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing &&
+              !busy &&
+              configured &&
+              !limitReached
+            ) {
+              event.preventDefault();
+              form.current?.requestSubmit();
+            }
+          }}
         />
         <button
+          ref={sendButton}
           className="btn btn-primary"
           disabled={!configured || busy || !question.trim() || limitReached}
           aria-label="질문 보내기"
+          aria-describedby="chat-keyboard-hint"
         >
           <Send size={18} />
         </button>
       </form>
+      <p className="chat-keyboard-hint form-hint" id="chat-keyboard-hint">
+        Enter로 보내고 Shift+Enter로 줄을 바꿉니다.
+      </p>
     </section>
   );
 }

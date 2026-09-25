@@ -23,7 +23,7 @@ import {
   isAssignmentType,
   typeLabels,
 } from "@/lib/domain";
-import { aiConfigured } from "@/lib/ai";
+import { aiConfigured, aiProviderDisclosure, aiProviderKey } from "@/lib/ai";
 import { AssignmentRow } from "./AssignmentRow";
 import { JoinClassForm } from "./JoinClassForm";
 import { ProfileForm } from "./ProfileForm";
@@ -42,6 +42,9 @@ import { RestoreMemberButton } from "./RestoreMemberButton";
 import { MAX_AI_MESSAGES_ON_PAGE } from "@/lib/limits";
 
 type Role = "STUDENT" | "TEACHER";
+const withUnit = (value: string, unit: string) =>
+  value ? (value.endsWith(unit) ? value : `${value}${unit}`) : "";
+
 const attachmentStatusLabels = {
   QUARANTINED: "검사 대기",
   CLEAN: "검사 완료",
@@ -67,7 +70,9 @@ export function Empty({ children }: { children: React.ReactNode }) {
   return (
     <div className="empty card">
       <BookOpen size={28} aria-hidden="true" focusable="false" />
-      <p>{children}</p>
+      <div className="empty-content">
+        {typeof children === "string" ? <p>{children}</p> : children}
+      </div>
     </div>
   );
 }
@@ -79,6 +84,12 @@ function scope(user: { id: string; role: Role }) {
 
 export async function Dashboard({ role }: { role: Role }) {
   const user = await requireUser(role);
+  const providerKey = aiProviderKey();
+  const hasAiConsent = Boolean(
+    user.aiConsentAt &&
+    providerKey &&
+    user.aiConsentProviderKey === providerKey,
+  );
   const base = `/${role.toLowerCase()}`;
   const [
     classes,
@@ -99,7 +110,7 @@ export async function Dashboard({ role }: { role: Role }) {
       include: { class: true, progress: { where: { userId: user.id } } },
       orderBy: { dueAt: "asc" },
     }),
-    role === "STUDENT" && user.aiConsentAt
+    role === "STUDENT" && hasAiConsent
       ? db.aIUsage.findUnique({
           where: { userId_day: { userId: user.id, day: dayKey() } },
         })
@@ -120,10 +131,7 @@ export async function Dashboard({ role }: { role: Role }) {
       ? db.submission.count({
           where: {
             status: "SUBMITTED",
-            assignment: {
-              archivedAt: null,
-              class: { teacherId: user.id },
-            },
+            assignment: { class: { teacherId: user.id } },
           },
         })
       : Promise.resolve(0),
@@ -131,10 +139,7 @@ export async function Dashboard({ role }: { role: Role }) {
       ? db.submission.findMany({
           where: {
             status: "SUBMITTED",
-            assignment: {
-              archivedAt: null,
-              class: { teacherId: user.id },
-            },
+            assignment: { class: { teacherId: user.id } },
           },
           select: {
             id: true,
@@ -144,6 +149,7 @@ export async function Dashboard({ role }: { role: Role }) {
               select: {
                 id: true,
                 title: true,
+                archivedAt: true,
                 class: { select: { name: true } },
               },
             },
@@ -161,8 +167,23 @@ export async function Dashboard({ role }: { role: Role }) {
   const overdue = (role === "TEACHER" ? assignments : studentActive).filter(
     (a) => daysLeft(a.dueAt) < 0,
   );
+  const todayDue = active.filter((a) => daysLeft(a.dueAt) === 0);
+  const todayItems = [
+    ...todayDue.map((assignment) => ({
+      kind: "assignment" as const,
+      id: assignment.id,
+      dueAt: assignment.dueAt,
+      assignment,
+    })),
+    ...events.map((event) => ({
+      kind: "event" as const,
+      id: event.id,
+      dueAt: event.dueAt,
+      event,
+    })),
+  ].sort((left, right) => left.dueAt.getTime() - right.dueAt.getTime());
   const urgent = active.filter(
-    (a) => daysLeft(a.dueAt) >= 0 && daysLeft(a.dueAt) <= 2,
+    (a) => daysLeft(a.dueAt) >= 1 && daysLeft(a.dueAt) <= 2,
   );
   const week = active.filter(
     (a) => daysLeft(a.dueAt) > 2 && daysLeft(a.dueAt) <= 7,
@@ -209,20 +230,18 @@ export async function Dashboard({ role }: { role: Role }) {
     {
       label: "기한 지남",
       items: overdue,
-      empty: "기한이 지난 과제가 없어요.",
     },
     {
       label: "마감 임박 · 3일 이내",
       items: urgent,
-      empty: "3일 안에 마감하는 과제가 없어요.",
     },
     {
       label: "이번 주",
       items: week,
-      empty: "이번 주에 마감하는 과제가 없어요.",
     },
-    { label: "나중", items: later, empty: "나중에 할 과제가 없어요." },
+    { label: "나중", items: later },
   ];
+  const visibleSections = sections.filter((section) => section.items.length);
   return (
     <>
       <Heading
@@ -256,17 +275,32 @@ export async function Dashboard({ role }: { role: Role }) {
           </p>
         </div>
         {role === "TEACHER" ? (
-          <Link
-            className="btn btn-primary"
-            href={
-              classes[0]
-                ? `/teacher/classes/${classes[0].id}/assignments/new`
-                : "/teacher/classes/new"
-            }
-          >
-            <Plus size={16} aria-hidden="true" focusable="false" />
-            빠른 등록
-          </Link>
+          classes.length ? (
+            <details className="quick-assignment-picker">
+              <summary className="btn btn-primary">
+                <Plus size={16} aria-hidden="true" focusable="false" />
+                과제 등록
+              </summary>
+              <div className="quick-assignment-picker__options">
+                <p>과제를 등록할 클래스를 선택하세요.</p>
+                {classes.map((cls) => (
+                  <Link
+                    className="list-item"
+                    href={`/teacher/classes/${cls.id}/assignments/new`}
+                    key={cls.id}
+                  >
+                    <span>{cls.name}</span>
+                    <span className="form-hint">{cls.subject}</span>
+                  </Link>
+                ))}
+              </div>
+            </details>
+          ) : (
+            <Link className="btn btn-primary" href="/teacher/classes/new">
+              <Plus size={16} aria-hidden="true" focusable="false" />
+              클래스 만들기
+            </Link>
+          )
         ) : (
           <GraduationCap
             className="hero-symbol"
@@ -279,12 +313,13 @@ export async function Dashboard({ role }: { role: Role }) {
       <PendingPromptNotice
         role={role}
         hasAssignments={assignments.length > 0}
+        hasClasses={classes.length > 0}
         assignmentHref={
           role === "STUDENT"
             ? nearest
               ? "/student/assignments/" + nearest.id + "#chat"
-              : assignments.length
-                ? "/student/ai"
+              : assignments[0]
+                ? `/student/assignments/${assignments[0].id}#chat`
                 : undefined
             : undefined
         }
@@ -313,8 +348,8 @@ export async function Dashboard({ role }: { role: Role }) {
               </h2>
               <p>학생이 제출한 과제에 피드백을 남겨 주세요.</p>
             </div>
-            <Link className="text-link" href="/teacher/assignments">
-              과제 관리 보기 <ArrowUpRight size={13} aria-hidden="true" />
+            <Link className="text-link" href="/teacher/reviews">
+              모든 검토 대기 보기 <ArrowUpRight size={13} aria-hidden="true" />
             </Link>
           </div>
           <div className="assignment-list">
@@ -350,6 +385,9 @@ export async function Dashboard({ role }: { role: Role }) {
                   </p>
                 </div>
                 <div className="assignment-meta">
+                  {submission.assignment.archivedAt && (
+                    <span className="badge badge-amber">보관된 과제</span>
+                  )}
                   <span className="badge badge-blue">검토 대기</span>
                 </div>
               </Link>
@@ -359,60 +397,121 @@ export async function Dashboard({ role }: { role: Role }) {
       )}
       <div className="dashboard-grid">
         <div>
-          {sections.map((section) => {
-            const items = section.items;
-            return (
-              <section key={section.label}>
+          {role === "STUDENT" && todayItems.length > 0 && (
+            <section aria-labelledby="dashboard-today-title">
+              <div className="section-heading">
+                <h2 id="dashboard-today-title">
+                  오늘 할 일 <span className="count">{todayItems.length}</span>
+                </h2>
+                <Link className="text-link" href="/student/calendar">
+                  캘린더 <ArrowUpRight size={13} aria-hidden="true" />
+                </Link>
+              </div>
+              <div className="assignment-list">
+                {todayItems.map((item) =>
+                  item.kind === "assignment" ? (
+                    <AssignmentRow
+                      assignment={item.assignment}
+                      key={`assignment-${item.id}`}
+                    />
+                  ) : (
+                    <div
+                      className="assignment-row today-personal-event"
+                      key={`event-${item.id}`}
+                    >
+                      <div className="assignment-date">
+                        <strong>
+                          {new Intl.DateTimeFormat("ko-KR", {
+                            day: "numeric",
+                            timeZone: "Asia/Seoul",
+                          }).format(item.dueAt)}
+                        </strong>
+                        <small>개인 일정</small>
+                      </div>
+                      <div className="assignment-main">
+                        <h3>{item.event.title}</h3>
+                        <p>오늘의 개인 일정</p>
+                      </div>
+                      <span className="badge badge-green">개인</span>
+                    </div>
+                  ),
+                )}
+              </div>
+            </section>
+          )}
+          {visibleSections.length ? (
+            visibleSections.map((section) => (
+              <section
+                aria-labelledby={`dashboard-section-${section.label}`}
+                key={section.label}
+              >
                 <div className="section-heading">
-                  <h2>
+                  <h2 id={`dashboard-section-${section.label}`}>
                     {section.label}{" "}
-                    <span className="count">{items.length}</span>
+                    <span className="count">{section.items.length}</span>
                   </h2>
                   <Link className="text-link" href={`${base}/assignments`}>
                     전체 보기 <ArrowUpRight size={13} aria-hidden="true" />
                   </Link>
                 </div>
-                {items.length ? (
-                  <div className="assignment-list">
-                    {items.slice(0, 4).map((a) => (
-                      <AssignmentRow
-                        key={a.id}
-                        assignment={a}
-                        teacher={role === "TEACHER"}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Empty>{section.empty}</Empty>
-                )}
+                <div className="assignment-list">
+                  {section.items.slice(0, 4).map((assignment) => (
+                    <AssignmentRow
+                      key={assignment.id}
+                      assignment={assignment}
+                      teacher={role === "TEACHER"}
+                    />
+                  ))}
+                </div>
               </section>
-            );
-          })}
+            ))
+          ) : (
+            <section
+              className="empty card card-pad"
+              aria-labelledby="dashboard-empty-title"
+            >
+              <h2 id="dashboard-empty-title">
+                {role === "STUDENT"
+                  ? assignments.length
+                    ? "진행 중인 과제가 없어요"
+                    : "아직 등록된 과제가 없어요"
+                  : "아직 등록된 과제가 없어요"}
+              </h2>
+              <p>
+                {role === "STUDENT"
+                  ? assignments.length
+                    ? "완료한 과제와 즐겨찾기는 과제 목록에서 다시 확인할 수 있어요."
+                    : classes.length
+                      ? "참여 중인 클래스에 과제가 등록되면 여기에 표시됩니다."
+                      : "선생님이 공유한 클래스 코드로 먼저 참여해 주세요."
+                  : classes.length
+                    ? "클래스에서 과제를 등록하면 학생 진행 상황을 확인할 수 있습니다."
+                    : "먼저 클래스를 만들고 학생을 초대해 주세요."}
+              </p>
+              <Link
+                className="btn btn-secondary"
+                href={
+                  role === "STUDENT"
+                    ? assignments.length || classes.length
+                      ? "/student/assignments"
+                      : "/student/classes"
+                    : classes.length
+                      ? "/teacher/classes"
+                      : "/teacher/classes/new"
+                }
+              >
+                {role === "STUDENT"
+                  ? assignments.length || classes.length
+                    ? "과제 목록 보기"
+                    : "클래스 참여하기"
+                  : classes.length
+                    ? "클래스 관리하기"
+                    : "클래스 만들기"}
+              </Link>
+            </section>
+          )}
         </div>
         <aside>
-          {role === "STUDENT" && (
-            <>
-              <div className="section-heading">
-                <h2>오늘의 개인 일정</h2>
-                <Link className="text-link" href="/student/calendar">
-                  캘린더 <ArrowUpRight size={13} aria-hidden="true" />
-                </Link>
-              </div>
-              <div className="card card-pad">
-                {events.length ? (
-                  events.map((event) => (
-                    <div className="list-item" key={event.id}>
-                      <h4>{event.title}</h4>
-                    </div>
-                  ))
-                ) : (
-                  <p className="page-subtitle">
-                    오늘 등록된 개인 일정이 없어요.
-                  </p>
-                )}
-              </div>
-            </>
-          )}
           <div className="section-heading">
             <h2>{role === "STUDENT" ? "AI와 시작하기" : "내 클래스"}</h2>
           </div>
@@ -465,7 +564,7 @@ export async function Dashboard({ role }: { role: Role }) {
                   href={`${base}/assignments/${a.id}`}
                 >
                   <div>
-                    <h4>{a.title}</h4>
+                    <h3>{a.title}</h3>
                     <p>
                       {a.class.subject} · {dday(a.dueAt)}
                     </p>
@@ -539,10 +638,17 @@ export async function Classes({ role }: { role: Role }) {
       <Heading
         eyebrow="CONNECTED CLASSROOM"
         title="내 클래스"
-        description="함께 배우는 공간, 필요한 과제를 한곳에서 확인하세요."
+        description={
+          role === "TEACHER"
+            ? "직접 운영하는 클래스와 학생 참여 현황을 관리하세요."
+            : "참여 중인 클래스와 필요한 과제를 한곳에서 확인하세요."
+        }
       />
       <div className="section-heading">
-        <h2>참여한 수업 {classes.length}</h2>
+        <h2>
+          {role === "TEACHER" ? "운영 중인 클래스" : "참여한 클래스"}{" "}
+          {classes.length}
+        </h2>
         {role === "TEACHER" && (
           <Link className="btn btn-primary" href="/teacher/classes/new">
             <Plus size={16} aria-hidden="true" focusable="false" />
@@ -579,8 +685,8 @@ export async function Classes({ role }: { role: Role }) {
       {!classes.length && (
         <Empty>
           {role === "TEACHER"
-            ? "아직 클래스가 없어요. 위에서 첫 수업을 만들어 보세요."
-            : "아직 클래스가 없어요. 아래에서 첫 수업을 시작해 보세요."}
+            ? "아직 운영 중인 클래스가 없어요. 위에서 첫 클래스를 만들어 보세요."
+            : "아직 참여 중인 클래스가 없어요. 선생님께 받은 초대 코드로 참여해 주세요."}
         </Empty>
       )}
       {role === "STUDENT" && (
@@ -635,11 +741,13 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
         <div className="hero-banner">
           <div>
             <h2>학생 초대 코드</h2>
-            <p>코드를 재발급하면 기존 코드는 더 이상 사용할 수 없습니다.</p>
+            <p>
+              새 학생에게 이 코드를 전달하세요. 기존 참여 학생은 코드 재발급
+              후에도 클래스에 남습니다.
+            </p>
           </div>
           <div className="detail-actions">
-            <code className="class-code">{cls.code}</code>
-            <RotateClassCodeButton classId={cls.id} />
+            <RotateClassCodeButton classId={cls.id} code={cls.code} />
           </div>
         </div>
       )}
@@ -664,7 +772,13 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
           />
         ))}
       </div>
-      {!activeAssignments.length && <Empty>등록된 과제가 없어요.</Empty>}
+      {!activeAssignments.length && (
+        <Empty>
+          {role === "STUDENT"
+            ? "이 클래스에는 아직 과제가 배정되지 않았어요. 선생님이 등록하면 여기에 표시됩니다."
+            : "아직 활성 과제가 없습니다. 위에서 첫 과제를 등록해 보세요."}
+        </Empty>
+      )}
       {role === "TEACHER" && archivedAssignments.length > 0 && (
         <>
           <div className="section-heading">
@@ -686,10 +800,15 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
             {activeMembers.length ? (
               activeMembers.map((m) => (
                 <div className="list-item" key={m.id}>
-                  <h4>{m.user.name}</h4>
+                  <h3>{m.user.name}</h3>
                   <p>
-                    {m.user.school} {m.user.grade && `${m.user.grade}학년`}{" "}
-                    {m.user.classroom && `${m.user.classroom}반`}
+                    {[
+                      m.user.school,
+                      withUnit(m.user.grade, "학년"),
+                      withUnit(m.user.classroom, "반"),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "프로필 정보 없음"}
                   </p>
                   <RemoveMemberButton memberId={m.id} />
                 </div>
@@ -710,7 +829,10 @@ export async function ClassDetail({ role, id }: { role: Role; id: string }) {
                   <div className="list-item" key={m.id}>
                     <div>
                       <h4>{m.user.name}</h4>
-                      <p>다시 초대하면 기존 기록을 계속 확인할 수 있습니다.</p>
+                      <p>
+                        기존 제출·검토 기록은 보존되며, 참여 복원 후 다시 확인할
+                        수 있습니다.
+                      </p>
                     </div>
                     <RestoreMemberButton memberId={m.id} />
                   </div>
@@ -728,27 +850,67 @@ export async function Assignments({
   role,
   filter = "",
   favorite = false,
+  query = "",
 }: {
   role: Role;
   filter?: string;
   favorite?: boolean;
+  query?: string;
 }) {
   const user = await requireUser(role);
   const base = `/${role.toLowerCase()}`;
-  const list = await db.assignment.findMany({
-    where: {
-      class: scope(user),
-      archivedAt: null,
-      ...(isAssignmentType(filter)
-        ? { type: filter as keyof typeof typeLabels }
-        : {}),
-      ...(favorite && role === "STUDENT"
-        ? { progress: { some: { userId: user.id, favorite: true } } }
-        : {}),
-    },
-    include: { class: true, progress: { where: { userId: user.id } } },
-    orderBy: { dueAt: "asc" },
-  });
+  const normalizedQuery = query.trim().slice(0, 80);
+  const classScope = scope(user);
+  const [list, totalCount, classCount] = await Promise.all([
+    db.assignment.findMany({
+      where: {
+        class: classScope,
+        archivedAt: null,
+        ...(isAssignmentType(filter)
+          ? { type: filter as keyof typeof typeLabels }
+          : {}),
+        ...(favorite && role === "STUDENT"
+          ? { progress: { some: { userId: user.id, favorite: true } } }
+          : {}),
+        ...(normalizedQuery
+          ? {
+              OR: [
+                { title: { contains: normalizedQuery, mode: "insensitive" } },
+                {
+                  class: {
+                    name: { contains: normalizedQuery, mode: "insensitive" },
+                  },
+                },
+                {
+                  class: {
+                    subject: { contains: normalizedQuery, mode: "insensitive" },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      include: { class: true, progress: { where: { userId: user.id } } },
+      orderBy: { dueAt: "asc" },
+    }),
+    db.assignment.count({ where: { class: classScope, archivedAt: null } }),
+    role === "STUDENT"
+      ? db.class.count({ where: classScope })
+      : Promise.resolve(0),
+  ]);
+  const hrefFor = (
+    nextFilter: string,
+    nextFavorite: boolean,
+    nextQuery: string,
+  ) => {
+    const params = new URLSearchParams();
+    if (nextFilter) params.set("type", nextFilter);
+    if (nextFavorite) params.set("favorite", "true");
+    if (nextQuery) params.set("q", nextQuery);
+    const search = params.toString();
+    return `${base}/assignments${search ? `?${search}` : ""}`;
+  };
+  const hasFilters = Boolean(filter || favorite || normalizedQuery);
   return (
     <>
       <Heading
@@ -756,10 +918,34 @@ export async function Assignments({
         title={role === "STUDENT" ? "과제 모아보기" : "과제 관리"}
         description="과제부터 시험, 준비물까지. 마감이 가까운 순서로 정리했어요."
       />
+      <form
+        className="assignment-search"
+        action={`${base}/assignments`}
+        method="get"
+      >
+        {isAssignmentType(filter) && (
+          <input type="hidden" name="type" value={filter} />
+        )}
+        {favorite && <input type="hidden" name="favorite" value="true" />}
+        <label className="sr-only" htmlFor="assignment-search-query">
+          과제 제목이나 클래스 검색
+        </label>
+        <input
+          id="assignment-search-query"
+          type="search"
+          name="q"
+          maxLength={80}
+          defaultValue={normalizedQuery}
+          placeholder="과제 제목 또는 클래스 검색"
+        />
+        <button className="btn btn-primary" type="submit">
+          검색
+        </button>
+      </form>
       <div className="filters">
         <Link
           className={`btn ${!filter && !favorite ? "btn-primary" : "btn-secondary"}`}
-          href={`${base}/assignments`}
+          href={hrefFor("", false, normalizedQuery)}
         >
           전체
         </Link>
@@ -767,7 +953,7 @@ export async function Assignments({
           <Link
             className={`btn ${filter === key ? "btn-primary" : "btn-secondary"}`}
             key={key}
-            href={`${base}/assignments?type=${key}`}
+            href={hrefFor(key, favorite, normalizedQuery)}
           >
             {label}
           </Link>
@@ -775,7 +961,7 @@ export async function Assignments({
         {role === "STUDENT" && (
           <Link
             className={`btn ${favorite ? "btn-primary" : "btn-secondary"}`}
-            href={`${base}/assignments?favorite=true`}
+            href={hrefFor(filter, !favorite, normalizedQuery)}
           >
             <Star size={15} aria-hidden="true" /> 즐겨찾기
           </Link>
@@ -790,7 +976,42 @@ export async function Assignments({
           />
         ))}
       </div>
-      {!list.length && <Empty>조건에 맞는 과제가 없어요.</Empty>}
+      {!list.length && (
+        <div className="empty card card-pad">
+          <h2>
+            {hasFilters
+              ? "조건에 맞는 과제가 없어요"
+              : totalCount
+                ? "표시할 과제가 없습니다"
+                : "아직 등록된 과제가 없어요"}
+          </h2>
+          <p>
+            {hasFilters
+              ? "검색어나 필터를 바꾸거나 전체 목록으로 돌아가 보세요."
+              : role === "STUDENT"
+                ? classCount
+                  ? "참여한 클래스에 과제가 등록되면 여기에 표시됩니다."
+                  : "과제를 확인하려면 먼저 선생님께 받은 코드로 클래스에 참여해 주세요."
+                : "클래스를 만들고 과제를 등록하면 이곳에서 관리할 수 있습니다."}
+          </p>
+          <Link
+            className="btn btn-secondary"
+            href={
+              hasFilters
+                ? hrefFor("", false, "")
+                : role === "STUDENT"
+                  ? "/student/classes"
+                  : "/teacher/classes"
+            }
+          >
+            {hasFilters
+              ? "필터 초기화"
+              : role === "STUDENT"
+                ? "내 클래스 보기"
+                : "클래스 관리하기"}
+          </Link>
+        </div>
+      )}
     </>
   );
 }
@@ -807,6 +1028,12 @@ export async function AssignmentDetail({
     includeArchived: role === "TEACHER",
   });
   if (!assignment) notFound();
+  const providerKey = aiProviderKey();
+  const hasAiConsent = Boolean(
+    user.aiConsentAt &&
+    providerKey &&
+    user.aiConsentProviderKey === providerKey,
+  );
   const progress =
     role === "STUDENT"
       ? await db.assignmentProgress.findUnique({
@@ -814,7 +1041,7 @@ export async function AssignmentDetail({
         })
       : null;
   const conversation =
-    role === "STUDENT" && user.aiConsentAt
+    role === "STUDENT" && hasAiConsent
       ? await db.aIConversation.findUnique({
           where: { userId_assignmentId: { userId: user.id, assignmentId: id } },
           include: {
@@ -851,6 +1078,12 @@ export async function AssignmentDetail({
               studentId: user.id,
             },
           },
+          include: {
+            reviews: {
+              orderBy: { createdAt: "desc" },
+              include: { reviewer: { select: { name: true } } },
+            },
+          },
         })
       : null;
   const submissions =
@@ -869,8 +1102,11 @@ export async function AssignmentDetail({
           orderBy: { updatedAt: "desc" },
         })
       : [];
+  const submissionStatusByStudent = new Map(
+    submissions.map((item) => [item.studentId, item.status]),
+  );
   const usage =
-    role === "STUDENT" && user.aiConsentAt
+    role === "STUDENT" && hasAiConsent
       ? await db.aIUsage.findUnique({
           where: { userId_day: { userId: user.id, day: dayKey() } },
         })
@@ -904,7 +1140,9 @@ export async function AssignmentDetail({
                 id={id}
                 field="completed"
                 value={progress?.completed ?? false}
-                label={progress?.completed ? "완료됨 · 취소하기" : "완료 처리"}
+                label={
+                  progress?.completed ? "진행 완료 표시 취소" : "진행 완료 표시"
+                }
               />
             </>
           ) : (
@@ -937,7 +1175,18 @@ export async function AssignmentDetail({
           </div>
           {assignment.attachments.length > 0 && (
             <>
-              <h2 className="small-heading">첨부파일</h2>
+              <h2 className="small-heading" id="attachments">
+                첨부파일
+              </h2>
+              {assignment.attachments.some(
+                (attachment) => attachment.scanStatus !== "CLEAN",
+              ) && (
+                <p className="form-hint">
+                  안전 검사가 끝난 파일만 다운로드할 수 있습니다. 검사 대기나
+                  오류가 오래 지속되면 서비스 운영 담당자에게 재검사를 문의해
+                  주세요.
+                </p>
+              )}
               {assignment.attachments.map((a) => (
                 <div className="list-item" key={a.id}>
                   {a.scanStatus === "CLEAN" ? (
@@ -981,7 +1230,7 @@ export async function AssignmentDetail({
           </div>
           {role === "STUDENT" && (
             <div className="info-row">
-              <span>나의 상태</span>
+              <span>나의 진행 표시</span>
               <span>{progress?.completed ? "완료" : "진행 중"}</span>
             </div>
           )}
@@ -989,16 +1238,8 @@ export async function AssignmentDetail({
       </div>
       {role === "STUDENT" ? (
         <>
-          <div style={{ marginTop: 24 }}>
-            <SubmissionForm
-              assignmentId={id}
-              content={submission?.content}
-              status={submission?.status}
-              feedback={submission?.feedback}
-            />
-          </div>
           <div id="chat" style={{ marginTop: 24 }}>
-            {user.aiConsentAt ? (
+            {hasAiConsent ? (
               <Chat
                 key={id}
                 assignmentId={id}
@@ -1014,8 +1255,28 @@ export async function AssignmentDetail({
                 limit={dailyLimit(user.plan)}
               />
             ) : (
-              <AiConsentForm />
+              <AiConsentForm
+                provider={aiProviderDisclosure()}
+                granted={hasAiConsent}
+                savedConsent={Boolean(user.aiConsentAt)}
+              />
             )}
+          </div>
+          <div style={{ marginTop: 24 }}>
+            <SubmissionForm
+              assignmentId={id}
+              content={submission?.content}
+              status={submission?.status}
+              feedback={submission?.feedback}
+              reviews={submission?.reviews.map((review) => ({
+                id: review.id,
+                status: review.status === "RETURNED" ? "RETURNED" : "REVIEWED",
+                feedback: review.feedback,
+                submissionContent: review.submissionContent,
+                createdAt: review.createdAt.toISOString(),
+                reviewerName: review.reviewer.name,
+              }))}
+            />
           </div>
         </>
       ) : (
@@ -1025,8 +1286,8 @@ export async function AssignmentDetail({
               <h2>학생별 진행 상황</h2>
               <p>
                 {members.filter((m) => m.user.progress[0]?.completed).length}/
-                {members.length}명 완료 · 제출된 과제는 아래에서 검토할 수
-                있어요.
+                {members.length}명 진행 완료 표시 · 제출 상태는 각 학생의
+                배지에서 확인할 수 있어요.
               </p>
             </div>
           </div>
@@ -1034,16 +1295,29 @@ export async function AssignmentDetail({
             {members.map((m) => (
               <div className="list-item" key={m.id}>
                 <div>
-                  <h4>{m.user.name}</h4>
+                  <h3>{m.user.name}</h3>
                   <p>
-                    {m.user.grade && `${m.user.grade}학년`}{" "}
-                    {m.user.classroom && `${m.user.classroom}반`}
+                    {[
+                      withUnit(m.user.grade, "학년"),
+                      withUnit(m.user.classroom, "반"),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "학년·반 정보 없음"}
                   </p>
                 </div>
                 <span
                   className={`badge ${m.user.progress[0]?.completed ? "badge-green" : "badge-amber"}`}
                 >
-                  {m.user.progress[0]?.completed ? "완료" : "진행 중"}
+                  {m.user.progress[0]?.completed ? "진행 완료" : "진행 중"}
+                </span>
+                <span className="badge badge-blue">
+                  {submissionStatusByStudent.get(m.user.id) === "REVIEWED"
+                    ? "검토 완료"
+                    : submissionStatusByStudent.get(m.user.id) === "RETURNED"
+                      ? "수정 요청"
+                      : submissionStatusByStudent.get(m.user.id) === "SUBMITTED"
+                        ? "검토 대기"
+                        : "미제출"}
                 </span>
               </div>
             ))}
@@ -1064,7 +1338,12 @@ export async function AssignmentDetail({
                   key={item.id}
                   submissionId={item.id}
                   studentName={item.student.name}
-                  studentMeta={`${item.student.grade ? `${item.student.grade}학년` : ""}${item.student.grade && item.student.classroom ? " " : ""}${item.student.classroom ? `${item.student.classroom}반` : ""}`}
+                  studentMeta={[
+                    withUnit(item.student.grade, "학년"),
+                    withUnit(item.student.classroom, "반"),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                   content={item.content}
                   status={item.status}
                   feedback={item.feedback}
@@ -1075,6 +1354,7 @@ export async function AssignmentDetail({
                     status:
                       review.status === "RETURNED" ? "RETURNED" : "REVIEWED",
                     feedback: review.feedback,
+                    submissionContent: review.submissionContent,
                     createdAt: review.createdAt.toISOString(),
                     reviewerName: review.reviewer.name,
                   }))}
@@ -1092,8 +1372,14 @@ export async function AssignmentDetail({
 
 export async function Settings({ role }: { role: Role }) {
   const user = await requireUser(role);
+  const providerKey = aiProviderKey();
+  const hasAiConsent = Boolean(
+    user.aiConsentAt &&
+    providerKey &&
+    user.aiConsentProviderKey === providerKey,
+  );
   const usage =
-    role === "STUDENT" && user.aiConsentAt
+    role === "STUDENT" && hasAiConsent
       ? await db.aIUsage.findUnique({
           where: { userId_day: { userId: user.id, day: dayKey() } },
         })
@@ -1103,7 +1389,11 @@ export async function Settings({ role }: { role: Role }) {
       <Heading
         eyebrow="MAKE IT YOURS"
         title="설정"
-        description="프로필과 나의 플랜을 관리하세요."
+        description={
+          role === "STUDENT"
+            ? "프로필과 AI 사용 설정을 관리하세요."
+            : "프로필과 수업 운영 정보를 관리하세요."
+        }
       />
       <ProfileForm
         user={{
@@ -1115,47 +1405,63 @@ export async function Settings({ role }: { role: Role }) {
       />
       {role === "STUDENT" && (
         <div style={{ marginTop: 24 }}>
-          <AiConsentForm granted={Boolean(user.aiConsentAt)} />
+          <AiConsentForm
+            granted={hasAiConsent}
+            savedConsent={Boolean(user.aiConsentAt)}
+            provider={aiProviderDisclosure()}
+          />
           <div style={{ marginTop: 16 }}>
             <div className="card card-pad">
               <h2 className="small-heading">AI 대화 기록</h2>
               <p className="prose-like">
-                저장된 과제별 AI 대화를 모두 삭제할 수 있습니다. 사용량 통계는
-                유지됩니다.
+                모든 과제의 앱 내 대화를 삭제합니다. 사용 동의와 사용량 통계는
+                유지되며, 이후 질문을 보내면 새 대화 기록이 시작됩니다.
               </p>
               <AiDataDeleteButton />
             </div>
           </div>
         </div>
       )}
-      <div className="section-heading">
-        <h2>내 플랜 · {user.plan}</h2>
-      </div>
-      <div className="grid plans-grid">
+      {role === "STUDENT" ? (
+        <>
+          <div className="section-heading">
+            <h2>내 플랜 · {user.plan}</h2>
+          </div>
+          <div className="grid plans-grid">
+            <div className="card card-pad">
+              <span className="badge badge-blue">FREE</span>
+              <h3>학교생활의 기본</h3>
+              <p className="prose-like">
+                과제·클래스·캘린더 관리
+                <br />
+                AI 하루 10회
+              </p>
+            </div>
+            <div className="card card-pad">
+              <span className="badge badge-blue">PRO</span>
+              <h3>더 넉넉한 AI 도우미</h3>
+              <p className="prose-like">
+                AI 하루 100회
+                <br />
+                자동 공부계획 · 고급 일정 분석 · 파일 분석: 준비 중
+              </p>
+              <p className="form-hint">
+                MVP에서는 결제를 받지 않습니다. 플랜 변경은 운영자에게 문의해
+                주세요.
+              </p>
+            </div>
+          </div>
+        </>
+      ) : (
         <div className="card card-pad">
-          <span className="badge badge-blue">FREE</span>
-          <h3>학교생활의 기본</h3>
+          <h2 className="small-heading">교사 계정 기능</h2>
           <p className="prose-like">
-            과제·클래스·캘린더 관리
-            <br />
-            AI 하루 10회
+            교사 계정에서는 클래스와 학생을 관리합니다. AI 사용 한도와 플랜은
+            학생 계정에만 적용됩니다.
           </p>
         </div>
-        <div className="card card-pad">
-          <span className="badge badge-blue">PRO</span>
-          <h3>더 넉넉한 AI 도우미</h3>
-          <p className="prose-like">
-            AI 하루 100회
-            <br />
-            자동 공부계획 · 고급 일정 분석 · 파일 분석: 준비 중
-          </p>
-          <p className="form-hint">
-            MVP에서는 결제를 받지 않습니다. 플랜 변경은 운영자에게 문의해
-            주세요.
-          </p>
-        </div>
-      </div>
-      {role === "STUDENT" && user.aiConsentAt && (
+      )}
+      {role === "STUDENT" && hasAiConsent && (
         <p className="page-subtitle" style={{ marginTop: 20 }}>
           오늘 {usage?.count ?? 0}/{dailyLimit(user.plan)}회 사용 · 기록된 토큰{" "}
           {usage?.tokens ?? 0}개

@@ -8,6 +8,7 @@ export function ActionMessage({ state }: { state: ActionState }) {
       role={state.error ? "alert" : "status"}
       aria-live={state.error ? "assertive" : "polite"}
       aria-atomic="true"
+      tabIndex={-1}
     >
       {state.error || state.success}
     </div>

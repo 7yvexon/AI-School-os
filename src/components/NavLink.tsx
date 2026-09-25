@@ -23,6 +23,7 @@ export function NavLink({ href, children, className, ...props }: NavLinkProps) {
     normalizedPath === normalizedTarget ||
     (normalizedPath.startsWith(`${normalizedTarget}/`) &&
       !normalizedTarget.endsWith("/new"));
+  const current = normalizedPath === normalizedTarget;
   return (
     <Link
       {...props}
@@ -30,7 +31,7 @@ export function NavLink({ href, children, className, ...props }: NavLinkProps) {
       className={["nav-link", active ? "active" : "", className ?? ""]
         .filter(Boolean)
         .join(" ")}
-      aria-current={active ? "page" : undefined}
+      aria-current={current ? "page" : undefined}
     >
       {children}
     </Link>

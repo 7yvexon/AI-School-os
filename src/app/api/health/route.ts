@@ -16,7 +16,7 @@ function notReady(failed: "configuration" | "database") {
     {
       status: "not_ready",
       checks: {
-        configuration: failed === "configuration" ? "failed" : "not_checked",
+        configuration: failed === "configuration" ? "failed" : "ok",
         database: failed === "database" ? "failed" : "not_checked",
       },
     },

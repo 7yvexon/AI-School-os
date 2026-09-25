@@ -37,12 +37,15 @@ if [[ ! "$CONFIG_ROOT" =~ ^/[A-Za-z0-9._/-]+$ ]] || [ "$CONFIG_ROOT" = "/" ]; th
 fi
 
 command -v readlink >/dev/null
-command -v npm >/dev/null
 command -v curl >/dev/null
 command -v systemctl >/dev/null
 command -v chown >/dev/null
 command -v find >/dev/null
 command -v runuser >/dev/null
+if [ ! -x /usr/bin/node ] || [ ! -x /usr/bin/npm ]; then
+  echo "운영 배포에는 /usr/bin/node 및 /usr/bin/npm이 필요합니다." >&2
+  exit 1
+fi
 
 APP_ROOT=$(readlink -f -- "$APP_ROOT")
 CONFIG_ROOT=$(readlink -f -- "$CONFIG_ROOT")
@@ -158,16 +161,17 @@ run_as_service() {
   runuser --preserve-environment -u "$SERVICE_USER" -- env \
     HOME="$BUILD_HOME" \
     NPM_CONFIG_CACHE="$BUILD_HOME/.npm" \
+    PATH=/usr/bin:/bin \
     "$@"
 }
-run_as_service npm ci --include=dev --ignore-scripts
-run_as_service npm run ops:check-deprecations
-run_as_service npm run ops:check-env:production
-run_as_service npm run db:generate
-run_as_service npm run db:preflight
-run_as_service npm run db:deploy
+run_as_service /usr/bin/npm ci --include=dev --ignore-scripts
+run_as_service /usr/bin/npm run ops:check-deprecations
+run_as_service /usr/bin/npm run ops:check-env:production
+run_as_service /usr/bin/npm run db:generate
+run_as_service /usr/bin/npm run db:preflight
+run_as_service /usr/bin/npm run db:deploy
 rm -rf "$RELEASE_DIR/.next"
-run_as_service npm run build
+run_as_service /usr/bin/npm run build
 
 chown -R root:"$SERVICE_USER" "$RELEASE_DIR"
 find "$RELEASE_DIR" -type d -exec chmod 0750 {} +

@@ -5,7 +5,14 @@ import { requireUser } from "@/lib/auth";
 import { dayKey } from "@/lib/domain";
 import { Heading } from "@/components/WorkspaceViews";
 import { EventForm } from "@/components/EventForm";
-import { DeleteButton } from "@/components/DeleteButton";
+import { PersonalEventRow } from "@/components/PersonalEventRow";
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata = pageMetadata(
+  "나의 캘린더",
+  "수업 과제 마감과 개인 일정을 확인하세요.",
+);
+
 export default async function Page({
   searchParams,
 }: {
@@ -14,8 +21,12 @@ export default async function Page({
   const user = await requireUser("STUDENT");
   const query = await searchParams;
   const month = typeof query.month === "string" ? query.month : undefined;
+  const monthYear = month ? Number(month.slice(0, 4)) : 0;
   const selected =
-    month && /^20\d{2}-(0[1-9]|1[0-2])$/.test(month)
+    month &&
+    /^\d{4}-(0[1-9]|1[0-2])$/.test(month) &&
+    monthYear >= 1900 &&
+    monthYear <= 9998
       ? month
       : dayKey().slice(0, 7);
   const [year, m] = selected.split("-").map(Number);
@@ -36,6 +47,20 @@ export default async function Page({
       orderBy: { dueAt: "asc" },
     }),
   ]);
+  const monthEvents = [
+    ...assignments.map((assignment) => ({
+      id: assignment.id,
+      type: "assignment" as const,
+      title: assignment.title,
+      dueAt: assignment.dueAt,
+    })),
+    ...events.map((event) => ({
+      id: event.id,
+      type: "personal" as const,
+      title: event.title,
+      dueAt: event.dueAt,
+    })),
+  ].sort((left, right) => left.dueAt.getTime() - right.dueAt.getTime());
   const count = new Date(Date.UTC(year, m, 0)).getUTCDate();
   const start = first.getUTCDay();
   const cells = Math.ceil((start + count) / 7) * 7;
@@ -122,6 +147,7 @@ export default async function Page({
                               href={`/student/assignments/${a.id}`}
                               key={a.id}
                             >
+                              <span className="calendar-event-kind">마감</span>
                               {a.title}
                             </Link>
                           ))}
@@ -131,8 +157,10 @@ export default async function Page({
                             <span
                               className="calendar-event personal"
                               title={e.title}
+                              aria-label={`${e.title}, ${year}년 ${m}월 ${day}일 개인 일정`}
                               key={e.id}
                             >
+                              <span className="calendar-event-kind">개인</span>
                               {e.title}
                             </span>
                           ))}
@@ -150,21 +178,36 @@ export default async function Page({
       </div>
       <EventForm />
       <div className="section-heading">
-        <h2>이번 달 개인 일정</h2>
+        <h2>이번 달 일정</h2>
       </div>
       <div className="card card-pad">
-        {events.length ? (
-          events.map((e) => (
-            <div className="list-item" key={e.id}>
-              <div>
-                <h4>{e.title}</h4>
-                <p>{dayKey(e.dueAt)}</p>
-              </div>
-              <DeleteButton id={e.id} op="event-delete" label="일정 삭제" />
-            </div>
-          ))
+        {monthEvents.length ? (
+          monthEvents.map((event) =>
+            event.type === "personal" ? (
+              <PersonalEventRow
+                event={{
+                  id: event.id,
+                  title: event.title,
+                  dueAt: dayKey(event.dueAt),
+                }}
+                key={`personal-${event.id}`}
+              />
+            ) : (
+              <Link
+                className="list-item calendar-agenda-item"
+                href={`/student/assignments/${event.id}`}
+                key={`assignment-${event.id}`}
+              >
+                <div>
+                  <span className="badge badge-blue">과제 마감</span>
+                  <h3>{event.title}</h3>
+                  <p>{dayKey(event.dueAt)}</p>
+                </div>
+              </Link>
+            ),
+          )
         ) : (
-          <p className="page-subtitle">아직 개인 일정이 없어요.</p>
+          <p className="page-subtitle">이번 달에는 예정된 일정이 없어요.</p>
         )}
       </div>
     </>

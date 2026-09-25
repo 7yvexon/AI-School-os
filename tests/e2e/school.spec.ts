@@ -27,7 +27,6 @@ async function register(
   await page.getByLabel("이름", { exact: true }).fill(name);
   await page.getByLabel(role, { exact: true }).check({ force: true });
   await page.getByLabel("이메일").fill(email);
-  await page.getByLabel("전화번호").fill("010-0000-0000");
   await page.getByLabel("비밀번호").fill(e2eTestPassword);
   await page.getByRole("button", { name: "회원가입" }).click();
   if (role === "선생님") {
@@ -155,6 +154,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     })),
   });
   await teacher.goto(`/teacher/assignments/${assignmentId}/edit`);
+  await teacher.getByLabel("제목", { exact: true }).fill("입력 보존 확인 제목");
   await teacher.getByLabel("첨부파일", { exact: false }).setInputFiles({
     name: "quota-overflow.txt",
     mimeType: "text/plain",
@@ -164,6 +164,10 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await expect(teacher.locator(".alert-error")).toContainText(
     "클래스 첨부파일 개수 한도",
   );
+  await expect(teacher.getByLabel("제목", { exact: true })).toHaveValue(
+    "입력 보존 확인 제목",
+  );
+  await teacher.getByLabel("제목", { exact: true }).fill("E2E 탐구 과제");
   expect(await db.attachment.count({ where: { assignmentId } })).toBe(
     MAX_ATTACHMENTS_PER_CLASS,
   );
@@ -205,7 +209,37 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await db.attachmentUploadReservation.delete({
     where: { id: reservation.id },
   });
+  await teacher.locator("#file").setInputFiles({
+    name: "mismatched.pdf",
+    mimeType: "text/plain",
+    buffer: Buffer.from("x"),
+  });
+  await teacher.getByRole("button", { name: "저장하기" }).click();
+  await expect(teacher.locator(".alert-error")).toContainText(
+    "파일 확장자와 내용 형식이 일치하지 않습니다",
+  );
+  await teacher.locator("#file").setInputFiles({
+    name: "infected.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("EICAR_TEST"),
+  });
+  await teacher.getByRole("button", { name: "저장하기" }).click();
+  await expect(teacher.locator(".alert-error")).toContainText(
+    "안전하지 않은 첨부파일",
+  );
+  expect(
+    await db.attachment.count({
+      where: { assignmentId, name: "infected.txt" },
+    }),
+  ).toBe(0);
+  await teacher.locator("#file").setInputFiles([]);
   await teacher.goto(`/teacher/assignments/${assignmentId}`);
+  const emptySubmission = student.getByLabel("제출 내용", { exact: true });
+  await emptySubmission.fill("");
+  await student
+    .getByRole("button", { name: "과제 제출하기", exact: true })
+    .click();
+  expect(await db.submission.count({ where: { assignmentId } })).toBe(0);
   await student
     .getByLabel("제출 내용", { exact: true })
     .fill("주제를 정하고 참고 자료를 비교해 본 탐구 결과입니다.");
@@ -223,6 +257,42 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
       exact: true,
     }),
   ).toBeVisible();
+  const submissionRecord = await db.submission.findUniqueOrThrow({
+    where: {
+      assignmentId_studentId: {
+        assignmentId,
+        studentId: (
+          await db.user.findUniqueOrThrow({
+            where: { email: `student-${stamp}@example.com` },
+            select: { id: true },
+          })
+        ).id,
+      },
+    },
+  });
+  await db.submission.update({
+    where: { id: submissionRecord.id },
+    data: {
+      content: "서버에서 갱신된 검토 대상 제출 내용입니다.",
+      updatedAt: new Date(Date.now() + 5000),
+    },
+  });
+  await teacher
+    .getByLabel("검토 결과", { exact: true })
+    .selectOption("RETURNED");
+  await teacher
+    .getByLabel("피드백", { exact: true })
+    .fill("첫 문단에 참고 자료의 근거를 조금 더 적어 주세요.");
+  await teacher.getByRole("button", { name: "검토 저장", exact: true }).click();
+  await expect(teacher.locator(".alert-error")).toContainText(
+    "다른 검토가 먼저 저장되었습니다",
+  );
+  expect(
+    await db.submissionReview.count({
+      where: { submissionId: submissionRecord.id },
+    }),
+  ).toBe(0);
+  await teacher.reload();
   await teacher
     .getByLabel("검토 결과", { exact: true })
     .selectOption("RETURNED");
@@ -237,12 +307,18 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   ).toBeVisible();
   await student.reload();
   await expect(
-    student.getByText("수정 후 재제출", { exact: true }),
+    student.getByRole("button", { name: "다시 제출하기" }),
   ).toBeVisible();
   await expect(
     student.getByText("첫 문단에 참고 자료의 근거를 조금 더 적어 주세요.", {
       exact: true,
     }),
+  ).toBeVisible();
+  const reviewHistory = student.locator(".submission-review-history");
+  await reviewHistory.locator("summary").click();
+  await reviewHistory.getByText("검토 당시 제출 내용 보기").click();
+  await expect(
+    reviewHistory.getByText("서버에서 갱신된 검토 대상 제출 내용입니다."),
   ).toBeVisible();
   await student.goto("/student/dashboard");
   await expect(
@@ -287,11 +363,63 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await student.getByRole("button", { name: "AI 사용 동의하기" }).click();
   await expect(student.getByLabel("AI에게 질문")).toBeVisible();
   await student.getByRole("button", { name: "즐겨찾기", exact: true }).click();
+  await expect(
+    student.getByRole("button", { name: "즐겨찾기 해제", exact: true }),
+  ).toBeFocused();
   await student.getByLabel("AI에게 질문").fill("오늘 30분 동안 할 일을 알려줘");
   await student.getByRole("button", { name: "질문 보내기" }).click();
   await expect(student.locator(".message.assistant")).toContainText(
     "먼저 주제 선정",
   );
+  const inFlightDelete = studentContext.request.post("/api/ai", {
+    headers: { origin: e2eOrigin },
+    data: { assignmentId, message: "DELETE_DURING_RESPONSE" },
+  });
+  await expect
+    .poll(async () => {
+      const conversation = await db.aIConversation.findUnique({
+        where: {
+          userId_assignmentId: {
+            userId: submissionRecord.studentId,
+            assignmentId,
+          },
+        },
+        select: { busyUntil: true },
+      });
+      return Boolean(conversation && conversation.busyUntil > new Date());
+    })
+    .toBeTruthy();
+  await student.goto("/student/settings");
+  student.on("dialog", (dialog) => dialog.accept());
+  await student.getByRole("button", { name: "AI 대화 기록 삭제" }).click();
+  await expect(
+    student.getByText(/저장된 AI 대화를 삭제했습니다/),
+  ).toBeVisible();
+  expect((await inFlightDelete).status()).toBe(410);
+  expect(
+    await db.aIMessage.count({
+      where: { conversation: { userId: submissionRecord.studentId } },
+    }),
+  ).toBe(0);
+  const savedAfterDelete = await studentContext.request.post("/api/ai", {
+    headers: { origin: e2eOrigin },
+    data: { assignmentId, message: "오늘 30분 동안 할 일을 알려줘" },
+  });
+  expect(savedAfterDelete.status()).toBe(200);
+  await student.goto("/student/settings");
+  await student.getByRole("button", { name: "AI 사용 동의 철회" }).click();
+  const revokedResponse = await studentContext.request.post("/api/ai", {
+    headers: { origin: e2eOrigin },
+    data: { assignmentId, message: "철회 뒤 요청" },
+  });
+  expect(revokedResponse.status()).toBe(428);
+  expect(
+    await db.aIConversation.count({
+      where: { userId: submissionRecord.studentId },
+    }),
+  ).toBe(1);
+  await student.getByRole("button", { name: "AI 사용 동의하기" }).click();
+  await student.goto(`/student/assignments/${assignmentId}`);
   await student.reload();
   await expect(student.locator(".message.user")).toContainText("오늘 30분");
   await expect(student.locator(".message.assistant")).toContainText(
@@ -303,8 +431,8 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   const usage = await db.aIUsage.findFirstOrThrow({
     where: { userId: learner.id },
   });
-  expect(usage.count).toBe(1);
-  expect(usage.tokens).toBe(123);
+  expect(usage.count).toBe(3);
+  expect(usage.tokens).toBe(246);
   const request = (message: string, origin = e2eOrigin) =>
     studentContext.request.post("/api/ai", {
       headers: { origin },
@@ -315,12 +443,18 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
       where: { key: { startsWith: "ai:global:" } },
       select: { key: true, count: true },
     });
+  await db.rateLimit.deleteMany({
+    where: {
+      key: { startsWith: "ai:" },
+      NOT: { key: { startsWith: "ai:global:" } },
+    },
+  });
   expect((await request("test", "https://foreign.example")).status()).toBe(403);
   expect((await request("FAIL_PROVIDER")).status()).toBe(502);
   expect(
     (await db.aIUsage.findUniqueOrThrow({ where: { id: usage.id } })).count,
-  ).toBe(2);
-  expect((await globalUsage()).count).toBe(2);
+  ).toBe(4);
+  expect((await globalUsage()).count).toBe(4);
   await db.aIUsage.update({ where: { id: usage.id }, data: { count: 9 } });
   const responses = await Promise.all([
     request("첫 질문"),
@@ -331,9 +465,9 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   expect(
     (await db.aIUsage.findUniqueOrThrow({ where: { id: usage.id } })).count,
   ).toBe(10);
-  expect((await globalUsage()).count).toBe(3);
+  expect((await globalUsage()).count).toBe(5);
   expect((await request("마지막 질문")).status()).toBe(429);
-  expect((await globalUsage()).count).toBe(3);
+  expect((await globalUsage()).count).toBe(5);
   await db.rateLimit.deleteMany({
     where: {
       key: { startsWith: "ai:" },
@@ -357,7 +491,9 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     student.getByRole("button", { name: "완료됨 · 취소하기" }),
   ).toBeVisible();
   await teacher.reload();
-  await expect(teacher.getByText("1/1명 완료", { exact: false })).toBeVisible();
+  await expect(
+    teacher.getByText("1/1명 진행 완료 표시", { exact: false }),
+  ).toBeVisible();
   await teacher.screenshot({
     path: "test-results/teacher-progress.png",
     fullPage: true,
@@ -390,7 +526,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     .getByRole("link", { name: "캘린더" })
     .click();
   await expect(student).toHaveURL(/student\/calendar/);
-  student.on("dialog", (dialog) => dialog.accept());
+  await expect(student.locator("#main-content")).toBeFocused();
   await student.getByRole("button", { name: "일정 삭제" }).click();
   await expect(student.getByText("아직 개인 일정이 없어요.")).toBeVisible();
   await student.getByRole("button", { name: "메뉴 열기" }).click();
@@ -444,16 +580,44 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await expect(
     teacher2.getByRole("heading", { name: "페이지를 찾을 수 없어요" }),
   ).toBeVisible();
+  teacher.on("dialog", (dialog) => dialog.accept());
+  await teacher.goto(classUrl);
+  await teacher.getByRole("button", { name: "학생 제외", exact: true }).click();
+  await expect(
+    teacher.getByText("참여 학생 0명", { exact: true }),
+  ).toBeVisible();
+  expect((await studentContext.request.get(attachmentHref!)).status()).toBe(
+    404,
+  );
+  expect(
+    (
+      await studentContext.request.post("/api/ai", {
+        headers: { origin: e2eOrigin },
+        data: { assignmentId, message: "제외 뒤 AI 접근 테스트" },
+      })
+    ).status(),
+  ).toBe(404);
+  await student.goto(`/student/assignments/${assignmentId}`);
+  await expect(
+    student.getByRole("heading", { name: "페이지를 찾을 수 없어요" }),
+  ).toBeVisible();
+  await teacher
+    .locator(".list-item")
+    .filter({ hasText: "테스트 학생" })
+    .getByRole("button", { name: "참여 복원", exact: true })
+    .click();
+  await expect(
+    teacher.getByText("참여 학생 1명", { exact: true }),
+  ).toBeVisible();
   await teacher.goto(`/teacher/assignments/${assignmentId}/edit`);
   await teacher.getByLabel("제목", { exact: true }).fill("수정된 E2E 과제");
   await teacher.getByRole("button", { name: "저장하기" }).click();
   await expect(
     teacher.getByRole("heading", { name: "수정된 E2E 과제" }),
   ).toBeVisible();
-  teacher.on("dialog", (dialog) => dialog.accept());
   await teacher.getByRole("button", { name: "과제 보관", exact: true }).click();
   await expect(teacher).toHaveURL(classUrl);
-  await expect(teacher.getByText("등록된 과제가 없어요.")).toBeVisible();
+  await expect(teacher.getByText("아직 활성 과제가 없습니다.")).toBeVisible();
   await student.goto(`/student/assignments/${assignmentId}`);
   await expect(
     student.getByRole("heading", { name: "페이지를 찾을 수 없어요" }),
@@ -482,6 +646,22 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await expect(outsider.locator(".alert-error")).toContainText(
     "클래스 코드를 확인",
   );
+  await outsider.getByLabel("클래스 코드").fill(rotatedCode);
+  await outsider
+    .getByRole("button", { name: "클래스 참여", exact: true })
+    .click();
+  await expect(
+    outsider.getByRole("heading", { name: "E2E 탐구 수업" }),
+  ).toBeVisible();
+  await teacher.goto(classUrl);
+  await teacher
+    .getByRole("heading", { name: "외부 학생", exact: true })
+    .locator("..")
+    .getByRole("button", { name: "학생 제외", exact: true })
+    .click();
+  await expect(
+    teacher.getByText("참여 학생 1명", { exact: true }),
+  ).toBeVisible();
   await teacher.getByRole("button", { name: "학생 제외", exact: true }).click();
   await expect(
     teacher.getByText("참여 학생 0명", { exact: true }),
@@ -492,10 +672,12 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
     .getByRole("button", { name: "클래스 참여", exact: true })
     .click();
   await expect(student.locator(".alert-error")).toContainText(
-    "다시 참여할 수 없습니다",
+    "제외되어 있어요",
   );
   await teacher
-    .getByRole("button", { name: "학생 다시 초대", exact: true })
+    .locator(".list-item")
+    .filter({ hasText: "테스트 학생" })
+    .getByRole("button", { name: "참여 복원", exact: true })
     .click();
   await expect(
     teacher.getByText("참여 학생 1명", { exact: true }),
@@ -539,7 +721,7 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   });
   expect(
     await db.classMember.count({
-      where: { classId, userId: outsiderUser.id },
+      where: { classId, userId: outsiderUser.id, removedAt: null },
     }),
   ).toBe(0);
   await expect(
@@ -561,11 +743,10 @@ test("teacher and student full workflow, scoped access, AI persistence and quota
   await teacher.goto("/register");
   await teacher.getByLabel("이름", { exact: true }).fill("중복 가입 시도");
   await teacher.getByLabel("이메일").fill(`teacher-${stamp}@example.com`);
-  await teacher.getByLabel("전화번호").fill("010-0000-0000");
   await teacher.getByLabel("비밀번호").fill(e2eTestPassword);
   await teacher.getByRole("button", { name: "회원가입" }).click();
   await expect(teacher.locator(".alert-error")).toContainText(
-    "요청을 처리하지 못했습니다",
+    "가입을 완료하지 못했어요",
   );
   await outsiderContext.close();
   await teacherContext.close();
@@ -626,7 +807,6 @@ test("quarantined attachments are rescanned across batches", async () => {
     data: {
       email: `scanner-${stamp}@example.com`,
       name: "검사 테스트 선생님",
-      phone: "010-0000-0000",
       passwordHash: await bcrypt.hash(randomBytes(24).toString("hex"), 12),
       role: "TEACHER",
       teacherApprovedAt: new Date(),

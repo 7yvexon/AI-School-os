@@ -15,7 +15,7 @@ AI School OS는 운영 서버에서 Docker 없이 systemd와 로컬 PostgreSQL�
 
 ## 최초 설치
 
-서버에 Node.js 22.12 이상과 Git/SSH가 준비된 상태에서 저장소를 `<app-root>/releases/<release-id>`에 배치하고 root로 실행합니다. 아래 예시의 모든 `your-*` 값을 실제 운영 값으로 교체합니다.
+서버에 `/usr/bin/node`와 `/usr/bin/npm`으로 실행되는 Node.js 22.12 이상, Git/SSH가 준비된 상태에서 저장소를 `<app-root>/releases/<release-id>`에 배치하고 root로 실행합니다. 아래 예시의 모든 `your-*` 값을 실제 운영 값으로 교체합니다.
 
 ```bash
 cd <release-dir>
@@ -37,7 +37,7 @@ SERVICE_NAME=your-app \
 bash ops/deploy.sh /srv/your-app/releases/<release-id>
 ```
 
-`install-server.sh`는 PostgreSQL 16을 설치·활성화하고, 전용 DB 역할·데이터베이스·환경 파일·systemd 유닛을 최초 한 번 생성합니다. Docker Compose 개발 환경은 PostgreSQL 17 이미지를 사용하므로 운영 설치와 개발 환경의 PostgreSQL 주 버전이 다를 수 있지만, 저장소의 Prisma 스키마는 두 환경을 대상으로 합니다. 환경 파일이 이미 있으면 비밀값을 재생성하지 않습니다. 실제 운영 경로와 공개 호스트는 명령행 변수로만 전달됩니다.
+`install-server.sh`는 PostgreSQL 16을 설치·활성화하고, 전용 DB 역할·데이터베이스·환경 파일·애플리케이션 systemd 유닛과 만료 데이터 정리용 시간 유닛을 최초 한 번 생성합니다. 만료 데이터 정리는 매시간 예약됩니다. Docker Compose 개발 환경은 PostgreSQL 17 이미지를 사용하므로 운영 설치와 개발 환경의 PostgreSQL 주 버전이 다를 수 있지만, 저장소의 Prisma 스키마는 두 환경을 대상으로 합니다. 환경 파일이 이미 있으면 비밀값을 재생성하지 않습니다. 실제 운영 경로와 공개 호스트는 명령행 변수로만 전달됩니다.
 
 ## 릴리스 배포
 
@@ -69,13 +69,13 @@ Cloudflare One의 Tunnels & Mesh에서 사용할 터널을 열고 Published appl
 | Type      | `HTTP`                   |
 | URL       | `127.0.0.1:<app-port>`   |
 
-라우트를 저장하면 DNS는 Cloudflare가 자동으로 구성합니다. 커넥터 토큰은 서버 전용 저장소에만 두고 저장소 문서나 로그에 넣지 않습니다.
+라우트를 저장하면 DNS는 Cloudflare가 자동으로 구성합니다. `TRUST_PROXY=true`에서 앱은 Cloudflare가 설정한 단일 `CF-Connecting-IP` 헤더를 사용하며, 외부에서 들어온 `X-Forwarded-For`는 신뢰하지 않습니다. 앱은 loopback에만 바인딩해야 합니다. 커넥터 토큰은 서버 전용 저장소에만 두고 저장소 문서나 로그에 넣지 않습니다.
 
 ## 환경변수
 
-기본 운영값은 `<config-root>/app.env`에 생성됩니다. 환경 파일의 `NODE_ENV`는 반드시 `production`이어야 하며 배포 스크립트가 이 값을 확인합니다. `APP_URL`, `TRUST_PROXY`, `SERVER_ACTION_ALLOWED_ORIGINS`는 공개 호스트에 맞춰 설정하고, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` 중 하나라도 비어 있으면 AI 기능은 비활성화된 상태로 핵심 학습 기능을 사용할 수 있습니다. 운영의 `AI_BASE_URL`은 HTTPS를 사용해야 합니다. 첨부파일을 사용하려면 `CLAMAV_SOCKET` 또는 `CLAMAV_HOST`·`CLAMAV_PORT`를 설정하고, scanner가 응답하지 않으면 파일은 격리 상태로 남습니다. 실제 AI·ClamAV를 연결할 때는 비밀값과 endpoint를 환경 파일에만 넣고 `<service-name>` 서비스를 재시작합니다.
+기본 운영값은 `<config-root>/app.env`에 생성됩니다. 환경 파일의 `NODE_ENV`는 반드시 `production`이어야 하며 배포 스크립트가 이 값을 확인합니다. `APP_URL`, `TRUST_PROXY`, `SERVER_ACTION_ALLOWED_ORIGINS`는 공개 호스트에 맞춰 설정합니다. AI 변수 세 개가 모두 비어 있으면 AI 없이 핵심 기능을 사용할 수 있습니다. 일부만 설정되거나 URL이 잘못되었으면 운영 환경 점검이 실패합니다. 운영의 `AI_BASE_URL`은 HTTPS를 사용해야 합니다. 첨부파일을 사용하려면 `CLAMAV_SOCKET` 또는 `CLAMAV_HOST`·`CLAMAV_PORT`를 설정하고, scanner가 응답하지 않으면 파일은 격리 상태로 남습니다. 실제 AI·ClamAV를 연결할 때는 비밀값과 endpoint를 환경 파일에만 넣고 `<service-name>` 서비스를 재시작합니다.
 
-학생과 선생님 모두 회원가입 화면에서 역할을 선택할 수 있고 전화번호를 필수로 입력합니다. 이메일 소유권과 전화번호 진위는 자동 검증하지 않으며, 교사 가입은 승인 대기 상태로 저장됩니다. 실제 학교 운영에서는 관리자가 대시보드·DB를 확인해 비정상 계정을 수동 정리해야 합니다.
+학생과 선생님 모두 회원가입 화면에서 역할을 선택할 수 있습니다. 전화번호는 수집하지 않지만, 이메일 소유권은 자동 검증하지 않습니다. 교사 가입은 운영 담당자 승인 대기 상태로 저장됩니다. 실제 학교 운영에 사용하지 말고, 시연 계정에는 실제 개인정보를 입력하지 마세요.
 
 ## 점검 명령
 

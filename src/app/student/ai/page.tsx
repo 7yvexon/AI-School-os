@@ -4,10 +4,22 @@ import { requireUser } from "@/lib/auth";
 import { dailyLimit, dayKey } from "@/lib/domain";
 import { Empty, Heading } from "@/components/WorkspaceViews";
 import { AiConsentForm } from "@/components/AiConsentForm";
+import { aiProviderDisclosure, aiProviderKey } from "@/lib/ai";
+import { pageMetadata } from "@/lib/page-metadata";
 import { ArrowUpRight, MessageCircle } from "lucide-react";
+export const metadata = pageMetadata(
+  "AI 학습 도우미",
+  "과제별 AI 대화를 확인하세요.",
+);
 export default async function Page() {
   const user = await requireUser("STUDENT");
-  if (!user.aiConsentAt) {
+  const providerKey = aiProviderKey();
+  const hasAiConsent = Boolean(
+    user.aiConsentAt &&
+    providerKey &&
+    user.aiConsentProviderKey === providerKey,
+  );
+  if (!hasAiConsent) {
     return (
       <>
         <Heading
@@ -15,11 +27,14 @@ export default async function Page() {
           title="AI 학습 도우미"
           description="AI 사용에 동의하면 과제별 학습 도우미를 이용할 수 있어요."
         />
-        <AiConsentForm />
+        <AiConsentForm
+          provider={aiProviderDisclosure()}
+          savedConsent={Boolean(user.aiConsentAt)}
+        />
       </>
     );
   }
-  const [assignments, usage] = await Promise.all([
+  const [assignments, usage, classCount] = await Promise.all([
     db.assignment.findMany({
       where: {
         archivedAt: null,
@@ -36,6 +51,9 @@ export default async function Page() {
     }),
     db.aIUsage.findUnique({
       where: { userId_day: { userId: user.id, day: dayKey() } },
+    }),
+    db.class.count({
+      where: { members: { some: { userId: user.id, removedAt: null } } },
     }),
   ]);
   return (
@@ -73,7 +91,16 @@ export default async function Page() {
         ))}
       </div>
       {!assignments.length && (
-        <Empty>클래스에 참여하면 과제별 AI 도우미를 사용할 수 있어요.</Empty>
+        <Empty>
+          <p>
+            {classCount
+              ? "참여 중인 클래스에 아직 배정된 과제가 없습니다. 선생님이 과제를 등록하면 여기에 표시됩니다."
+              : "과제별 AI 도우미를 사용하려면 먼저 선생님께 받은 코드로 클래스에 참여해 주세요."}
+          </p>
+          <Link className="btn btn-secondary" href="/student/classes">
+            {classCount ? "내 클래스 보기" : "클래스 참여하기"}
+          </Link>
+        </Empty>
       )}
     </>
   );

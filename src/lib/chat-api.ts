@@ -10,6 +10,17 @@ export type ChatApiResponse = {
   limit: number;
 };
 
+export class ChatApiError extends Error {
+  constructor(
+    message: string,
+    readonly used?: number,
+    readonly limit?: number,
+  ) {
+    super(message);
+    this.name = "ChatApiError";
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -56,8 +67,12 @@ export async function readChatResponse(
 
   if (!response.ok) {
     if (isRecord(data) && typeof data.error === "string" && data.error.trim())
-      throw new Error(data.error);
-    throw new Error(fallbackMessage(response.status));
+      throw new ChatApiError(
+        data.error,
+        isValidCount(data.used) ? data.used : undefined,
+        isValidCount(data.limit) ? data.limit : undefined,
+      );
+    throw new ChatApiError(fallbackMessage(response.status));
   }
 
   if (

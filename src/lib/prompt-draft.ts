@@ -24,3 +24,13 @@ export const getPromptModeDraft = (): PromptMode => {
     return "AI 학습";
   }
 };
+
+export const clearPromptDraft = () => {
+  try {
+    window.sessionStorage.removeItem(PROMPT_DRAFT_KEY);
+    window.sessionStorage.removeItem(PROMPT_DRAFT_MODE_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+};

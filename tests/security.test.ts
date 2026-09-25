@@ -44,7 +44,7 @@ test("request IP uses forwarded headers only when the proxy is trusted", () => {
 
 test("class invite codes keep the expected prefix and entropy", () => {
   const code = createClassCode();
-  assert.match(code, /^BSS-[0-9A-F]{10}$/);
+  assert.match(code, /^BSS-[0-9A-F]{16}$/);
 });
 
 test("attachment MIME checks require matching signatures", () => {

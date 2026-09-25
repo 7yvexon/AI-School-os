@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, MessageCircle, Search } from "lucide-react";
+import { ArrowUpRight, Check, MessageCircle, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import {
@@ -18,27 +18,31 @@ export function LandingPrompt() {
   function chooseMode(nextMode: PromptMode) {
     setMode(nextMode);
     setError("");
+    persistDraft(prompt, nextMode);
+  }
+
+  function persistDraft(value: string, draftMode: PromptMode) {
+    try {
+      if (!value.trim()) {
+        window.sessionStorage.removeItem(PROMPT_DRAFT_KEY);
+        window.sessionStorage.removeItem(PROMPT_DRAFT_MODE_KEY);
+        return true;
+      }
+      window.sessionStorage.setItem(PROMPT_DRAFT_KEY, value.trim());
+      window.sessionStorage.setItem(PROMPT_DRAFT_MODE_KEY, draftMode);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function submitPrompt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const value = prompt.trim();
-    if (!value) {
-      setError("시작할 일을 한 문장으로 입력해 주세요.");
+    if (!persistDraft(prompt, mode)) {
+      setError("시작 문장을 저장하지 못했어요. 가입 후 다시 입력해 주세요.");
       return;
     }
-
-    try {
-      window.sessionStorage.setItem(PROMPT_DRAFT_KEY, value);
-      window.sessionStorage.setItem(PROMPT_DRAFT_MODE_KEY, mode);
-    } catch {
-      setError(
-        "입력 내용을 잠시 저장하지 못했어요. 로그인 후 다시 입력해 주세요.",
-      );
-      return;
-    }
-
-    router.push("/login");
+    router.push("/register");
   }
 
   return (
@@ -58,8 +62,13 @@ export function LandingPrompt() {
         name="prompt"
         value={prompt}
         onChange={(event) => {
-          setPrompt(event.target.value);
-          if (error) setError("");
+          const value = event.currentTarget.value;
+          setPrompt(value);
+          setError(
+            persistDraft(value, mode)
+              ? ""
+              : "브라우저 저장을 사용할 수 없어 문장을 임시 보관하지 못했어요.",
+          );
         }}
         maxLength={240}
         rows={2}
@@ -67,15 +76,17 @@ export function LandingPrompt() {
         aria-invalid={Boolean(error)}
         placeholder="예: 오늘 30분 동안 탐구 과제를 어디서부터 시작할까?"
       />
-      <div
-        className="deep-prompt__hint"
-        id="landing-prompt-hint"
-        aria-live="polite"
-      >
-        <span className={error ? "is-error" : undefined}>
-          {error || "로그인 전에 입력한 문장은 이 브라우저에 잠시 보관해요."}
-        </span>
-        <small>{prompt.length}/240</small>
+      <div className="deep-prompt__hint" id="landing-prompt-hint">
+        {error ? (
+          <span className="is-error" role="status" aria-live="polite">
+            {error}
+          </span>
+        ) : (
+          <span>
+            문장은 이 탭에 임시 저장돼요. 질문 전에는 AI로 전송되지 않습니다.
+          </span>
+        )}
+        <small aria-live="off">{prompt.length}/240</small>
       </div>
       <div className="deep-prompt__bottom">
         <div className="deep-prompt__modes" aria-label="학습 모드">
@@ -85,6 +96,7 @@ export function LandingPrompt() {
             aria-pressed={mode === "AI 학습"}
             onClick={() => chooseMode("AI 학습")}
           >
+            {mode === "AI 학습" && <Check size={13} aria-hidden="true" />}
             <MessageCircle size={14} aria-hidden="true" />
             AI 학습
           </button>
@@ -94,6 +106,7 @@ export function LandingPrompt() {
             aria-pressed={mode === "과제 정리"}
             onClick={() => chooseMode("과제 정리")}
           >
+            {mode === "과제 정리" && <Check size={13} aria-hidden="true" />}
             <Search size={14} aria-hidden="true" />
             과제 정리
           </button>
@@ -102,12 +115,12 @@ export function LandingPrompt() {
           type="submit"
           className="deep-prompt__send"
           aria-label={
-            prompt.trim() ? "입력한 문장으로 로그인하기" : "AI 학습 시작하기"
-          }
-          title={
-            prompt.trim() ? "입력한 문장으로 로그인하기" : "AI 학습 시작하기"
+            prompt.trim() ? "문장을 저장하고 가입하기" : "가입하고 시작하기"
           }
         >
+          <span>
+            {prompt.trim() ? "문장 저장하고 가입" : "가입하고 시작하기"}
+          </span>
           <ArrowUpRight size={17} aria-hidden="true" />
         </button>
       </div>
