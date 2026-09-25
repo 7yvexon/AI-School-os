@@ -18,6 +18,7 @@ test("신뢰 프록시 IP는 유효한 IP 주소만 사용한다", () => {
     assert.equal(
       requestIp(
         new Headers({
+          "cf-connecting-ip": "2001:db8::1",
           "x-forwarded-for": "not-an-ip",
           "x-real-ip": "2001:db8::1",
         }),

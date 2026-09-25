@@ -15,7 +15,7 @@ import {
 import { parseRuntimeConfig, RuntimeConfigError } from "../src/lib/env-core";
 import { scanAttachmentData } from "../src/lib/attachment-scanner";
 
-test("request IP uses forwarded headers only when the proxy is trusted", () => {
+test("request IP uses only Cloudflare's client address when the proxy is trusted", () => {
   const previous = process.env.TRUST_PROXY;
   try {
     process.env.TRUST_PROXY = "false";
@@ -27,6 +27,7 @@ test("request IP uses forwarded headers only when the proxy is trusted", () => {
     assert.equal(
       requestIp(
         new Headers({
+          "cf-connecting-ip": "198.51.100.10",
           "x-forwarded-for": "198.51.100.10, 203.0.113.20",
         }),
       ),
@@ -34,7 +35,11 @@ test("request IP uses forwarded headers only when the proxy is trusted", () => {
     );
     assert.equal(
       requestIp(new Headers({ "x-real-ip": "203.0.113.20" })),
-      "203.0.113.20",
+      "direct",
+    );
+    assert.equal(
+      requestIp(new Headers({ "cf-connecting-ip": "not-an-ip" })),
+      "direct",
     );
   } finally {
     if (previous === undefined) delete process.env.TRUST_PROXY;
