@@ -110,7 +110,7 @@ async function main() {
   )
     throw new Error("E2E_AI_MOCK_PORT must be an integer between 0 and 65535.");
   const databaseDir = resolve(
-    process.env.E2E_DATABASE_DIR ?? ".local/e2e-postgres-v2",
+    process.env.E2E_DATABASE_DIR ?? ".local/e2e-postgres-v4",
   );
   await mkdir(resolve(databaseDir, ".."), { recursive: true });
   const databasePassword = await readOrCreateSecret(`${databaseDir}.password`);

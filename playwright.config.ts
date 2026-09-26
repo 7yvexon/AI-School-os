@@ -11,7 +11,7 @@ import { dirname, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 
 process.env.PLAYWRIGHT_BROWSERS_PATH ||= "0";
-process.env.E2E_DATABASE_DIR ||= ".local/e2e-postgres-v2";
+process.env.E2E_DATABASE_DIR ||= ".local/e2e-postgres-v4";
 const parsePort = (name: string, fallback: number) => {
   const port = Number(process.env[name] ?? fallback);
   if (!Number.isInteger(port) || port < 1 || port > 65535)

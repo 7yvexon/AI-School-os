@@ -252,7 +252,7 @@ npm run test:e2e
 
 `npm run ops:check-deprecations`는 `package-lock.json`의 deprecated 메타데이터를 점검합니다. 현재는 Next.js ESLint 플러그인 호환성 때문에 `eslint@9.39.5`만 허용하며, 다른 항목이나 ESLint 버전 변경은 검토 없이 통과하지 않습니다. 운영 환경 점검은 AI 설정이 전부 비어 있으면 AI 비활성화를 허용하고, 세 변수 일부만 설정했거나 `AI_BASE_URL`이 HTTP면 배포를 중단합니다.
 
-E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres-v2`), 기본 `3100` 포트의 빌드된 Next.js 서버, 그리고 loopback에서 실행되는 결정적 로컬 AI 픽스처를 사용합니다. AI 픽스처 포트는 기본적으로 비어 있는 포트를 자동 할당하며 `E2E_AI_MOCK_PORT`로 고정할 수 있습니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다.
+E2E는 `55433` 포트의 별도 PostgreSQL(`.local/e2e-postgres-v4`), 기본 `3100` 포트의 빌드된 Next.js 서버, 그리고 loopback에서 실행되는 결정적 로컬 AI 픽스처를 사용합니다. AI 픽스처 포트는 기본적으로 비어 있는 포트를 자동 할당하며 `E2E_AI_MOCK_PORT`로 고정할 수 있습니다. 실제 운영 DB나 외부 AI 키를 호출하지 않으며 프로젝트 내부 Chromium을 설치한 뒤 `npm run build`를 먼저 실행해야 합니다.
 
 `AI_ALLOW_INSECURE_HTTP_LOCALHOST=true`는 E2E 실행기가 로컬 AI 픽스처를 사용할 때만 주입합니다. 개발자가 외부 AI를 연결할 때는 HTTPS `AI_BASE_URL`을 사용하고 이 변수를 직접 설정하지 마세요.
 
